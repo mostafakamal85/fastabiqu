@@ -316,12 +316,13 @@ function parentLogin(){
     '<div style="height:8px"></div><button class="btn sec" onclick="TOKEN?kidHome():loginScreen()">رجوع</button></div>','ولي الأمر 🔒');
   setTimeout(function(){$('pin')&&$('pin').focus()},50);
 }
-function doLogin(){call('apiParentLogin',$('pin').value).then(function(t){PT=t;parent('review')})}
+var PINFO={};
+function doLogin(){call('apiParentLogin',$('pin').value).then(function(r){PT=r.token;PINFO=r;parent('review')})}
 function pBtns(){return'<button onclick="PT=null;TOKEN?kidHome():loginScreen()">خروج</button>'}
 function pTabs(t){var T={review:'المراجعة',log:'خصم / مكافأة',acc:'الحسابات',dash:'الملخص',stats:'الإحصائيات',chat:'💬 الشات'};
   return'<div class="tabs">'+Object.keys(T).map(function(k){return'<button class="tab '+(t===k?'on':'')+'" onclick="parent(\''+k+'\')">'+T[k]+(k==='acc'&&STATE.waiting?' ('+STATE.waiting+')':'')+'</button>'}).join('')+'</div>'}
 function parent(t){loading();({review:pReview,log:pLog,acc:pAcc,dash:pDash,chat:chatScreen,stats:function(){pStats(monthOf(CFG.today))}})[t]()}
-function pv(h){view(h,'ولي الأمر 🔒',pBtns())}
+function pv(h){view(h,'🔒 '+esc(PINFO.name||'ولي الأمر'),pBtns())}
 
 function pReview(){
   call('apiPending',PT).then(function(list){
@@ -356,7 +357,7 @@ function pLog(){
       '<label class="flex" style="margin:10px 0"><input id="lr" type="checkbox" style="width:auto"> اعتذر / أصلح الغلط</label></div>'+
       '<div id="lpts" class="hide"><label class="l">النقاط (موجب = مكافأة، سالب = خصم)</label><input id="lpv" type="number" min="-20" max="20" value="2">'+
       '<label class="l">السبب</label><input id="lrs" placeholder="مثال: ساعد أخوه في المذاكرة"></div>'+
-      '<label class="l">من</label>'+seg('lw',['بابا','ماما'],'بابا')+
+      (PINFO.main?'<label class="l">من</label>'+seg('lw',['بابا','ماما'],'بابا'):'')+
       '<label class="l">التاريخ</label><input id="ld" type="date" value="'+CFG.today+'" max="'+CFG.today+'">'+
       '<label class="attach" id="latt">📎 إرفاق دليل (صورة أو تسجيل صوت)<input type="file" accept="image/*,audio/*" class="hide" onchange="pickLogFile(this)"></label>'+
       '<div style="height:12px"></div><button class="btn" id="lgo" onclick="addLog()">تسجيل</button></div>';
@@ -386,12 +387,23 @@ function pAcc(){
     list.forEach(function(a,i){
       h+='<div class="card"><div class="flex">'+av(a.photo,a.display,52)+'<div style="flex:1"><b>'+esc(a.display)+'</b> '+statusBadge(a.status)+
         '<div class="muted">'+esc(a.user)+' — '+esc(a.sex)+(a.birth?' — مواليد '+a.birth:' — سنة الميلاد ناقصة')+'</div></div></div>'+
-        '<div class="flex" style="margin-top:10px;flex-wrap:wrap">'+
+        (!PINFO.main?'':'<div class="flex" style="margin-top:10px;flex-wrap:wrap">'+
         (a.status!=='مفعّل'?'<button class="btn sm" onclick="setAcc('+i+',{status:\'مفعّل\'})">موافقة ✅</button>':'<button class="btn sm red" onclick="setAcc('+i+',{status:\'موقوف\'})">إيقاف</button>')+
-        '<button class="btn sm sec" onclick="editAcc('+i+')">تعديل</button></div><div id="ed'+i+'"></div></div>'});
-    pv(h);
+        '<button class="btn sm sec" onclick="editAcc('+i+')">تعديل</button></div><div id="ed'+i+'"></div>')+'</div>'});
+    if(!PINFO.main)return pv(h);
+    call('apiHelpers',PT).then(function(hs){STATE.helpers=hs;
+      h+='<div class="card"><h2>👥 أولياء أمور مساعدين</h2><p class="muted">المساعد يقدر يراجع ويعتمد، ويسجّل خصم ومكافأة، ويستخدم الشات ويشوف الإحصائيات. ما يقدرش يوافق على حسابات أو يعدّلها أو يضيف مساعدين.</p>';
+      hs.forEach(function(x,i){h+='<div class="row flex between"><span><b>'+esc(x.name)+'</b> '+statusBadge(x.status)+'</span><span class="flex">'+
+        (x.status==='مفعّل'?'<button class="btn sm red" onclick="setHelper('+i+',\'موقوف\')">إيقاف</button>':'<button class="btn sm" onclick="setHelper('+i+',\'مفعّل\')">تفعيل</button>')+
+        '<button class="btn sm sec" onclick="helperPw('+i+')">كلمة سر جديدة</button></span></div>'});
+      h+='<label class="l">اسم المساعد (مثال: ماما، تيتة)</label><input id="hn"><label class="l">كلمة السر بتاعته (6 حروف على الأقل)</label><input id="hp" type="text">'+
+        '<div style="height:10px"></div><button class="btn" onclick="addHelper()">إضافة مساعد</button></div>';
+      pv(h)});
   });
 }
+function addHelper(){call('apiSetHelper',PT,$('hn').value,$('hp').value,'').then(function(){toast('اتضاف ✅');pAcc()})}
+function setHelper(i,st){call('apiSetHelper',PT,STATE.helpers[i].name,'',st).then(function(){toast('اتحفظ ✅');pAcc()})}
+function helperPw(i){var p=prompt('كلمة السر الجديدة لـ '+STATE.helpers[i].name+' (6 حروف على الأقل)');if(p)call('apiSetHelper',PT,STATE.helpers[i].name,p,'').then(function(){toast('اتغيرت ✅')})}
 function setAcc(i,patch){call('apiSetAccount',PT,STATE.accs[i].user,patch).then(function(){toast('اتحفظ ✅');pAcc()})}
 function editAcc(i){var a=STATE.accs[i];
   $('ed'+i).innerHTML='<label class="l">الاسم الظاهر</label><input id="ea'+i+'" value="'+esc(a.display)+'">'+
@@ -441,12 +453,12 @@ var CHAT_T=null;
 function chatScreen(){
   STATE.chatFile='';STATE.chatWho=STATE.chatWho||'بابا';
   var h=(PT?pTabs('chat'):'')+'<div class="card" style="padding:10px"><div id="msgs" class="msgs"><div class="spin">جاري التحميل...</div></div></div>'+
-    '<div class="card" style="padding:10px">'+(PT?'<div style="margin-bottom:8px">'+seg('cw',['بابا','ماما'],STATE.chatWho)+'</div>':'')+
+    '<div class="card" style="padding:10px">'+(PT&&PINFO.main?'<div style="margin-bottom:8px">'+seg('cw',['بابا','ماما'],STATE.chatWho)+'</div>':'')+
     '<div class="flex"><textarea id="ct" rows="2" placeholder="اكتب رسالة..." style="flex:1"></textarea>'+
     '<button class="btn sm" id="cgo" onclick="chatSend()">إرسال</button></div>'+
     '<label class="attach" id="catt">📎 صورة أو صوت<input type="file" accept="image/*,audio/*" class="hide" onchange="pickChatFile(this)"></label></div>';
   view(h,'💬 شات العيلة',PT?pBtns():backBtn('kidHome()'));
-  if(PT)$('cw').addEventListener('click',function(){STATE.chatWho=segVal('cw')});
+  if(PT&&PINFO.main)$('cw').addEventListener('click',function(){STATE.chatWho=segVal('cw')});
   chatLoad(true);CHAT_T=setInterval(function(){if(document.getElementById('msgs'))chatLoad(false);else{clearInterval(CHAT_T);CHAT_T=null}},8000);
 }
 function chatLoad(scroll){
@@ -454,7 +466,7 @@ function chatLoad(scroll){
     var atEnd=box.scrollHeight-box.scrollTop-box.clientHeight<40;
     if(STATE.chatLast===d.msgs.length&&!scroll)return;STATE.chatLast=d.msgs.length;
     if(!d.msgs.length){box.innerHTML='<div class="muted" style="text-align:center;padding:20px">لسه مفيش رسايل — ابدأ إنت 👋</div>';return}
-    box.innerHTML=d.msgs.map(function(m){var mine=PT?(m.from==='بابا'||m.from==='ماما')&&m.from===STATE.chatWho:m.from===d.me;
+    box.innerHTML=d.msgs.map(function(m){var mine=PT?m.from===(PINFO.main?STATE.chatWho:PINFO.name):m.from===d.me;
       var face=m.from==='بابا'?'<span class="av" style="width:30px;height:30px;background:#1f4e78">👨</span>':m.from==='ماما'?'<span class="av" style="width:30px;height:30px;background:#be185d">👩</span>':av(m.photo,m.name,30);
       var tm=new Date(m.t);tm=('0'+tm.getHours()).slice(-2)+':'+('0'+tm.getMinutes()).slice(-2)+' — '+tm.getDate()+'/'+(tm.getMonth()+1);
       return'<div class="m '+(mine?'me':'')+'">'+face+'<div class="bub"><b>'+esc(m.name)+'</b><div>'+esc(m.text).replace(/\n/g,'<br>')+'</div>'+evBtn(m.file)+'<span class="muted" style="font-size:11px">'+tm+'</span></div></div>'}).join('');

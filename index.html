@@ -88,7 +88,7 @@ var CFG=null, TOKEN=null, ME=null, PT=null, STATE={};
 var LS={get:function(k){try{return localStorage.getItem(k)}catch(e){return null}},set:function(k,v){try{v==null?localStorage.removeItem(k):localStorage.setItem(k,v)}catch(e){}}};
 var API='https://script.google.com/macros/s/AKfycbwdjpC6M7UXuXSzyl81rHU0AkUOKf9Salcixtc2fZbU_jTAour9VlPEckfwDLU3XuXh-Q/exec';
 function onErr(m){
-    if(m.indexOf('SESSION')>-1){ if(PT){PT=null;toast('انتهت جلسة ولي الأمر');parentLogin()} else {TOKEN=null;ME=null;LS.set('fs_tok',null);toast(m.replace('SESSION: ',''));loginScreen()} }
+    if(m.indexOf('SESSION')>-1){ if(PT){PT=null;PINFO={};LS.set('fs_pt',null);toast('انتهت جلسة ولي الأمر');parentLogin()} else {TOKEN=null;ME=null;LS.set('fs_tok',null);toast(m.replace('SESSION: ',''));loginScreen()} }
     else toast(m.replace(/^Error: /,''))}
 function call(fn){var args=[].slice.call(arguments,1);
   return fetch(API,{method:'POST',credentials:'omit',redirect:'follow',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({fn:fn,args:args})})
@@ -140,6 +140,7 @@ function evBtn(id){return id?'<button class="btn sm sec" style="margin-top:6px" 
 // ---------- start / auth
 function boot(){
   call('apiConfig').then(function(c){CFG=c;TOKEN=LS.get('fs_tok');
+    var sp=LS.get('fs_pt');if(sp){try{PINFO=JSON.parse(sp);PT=PINFO.token;return parent('review')}catch(e){LS.set('fs_pt',null)}}
     if(!TOKEN)return loginScreen();
     call('apiMe',TOKEN).then(function(me){ME=me;kidHome()})});
 }
@@ -317,8 +318,9 @@ function parentLogin(){
   setTimeout(function(){$('pin')&&$('pin').focus()},50);
 }
 var PINFO={};
-function doLogin(){call('apiParentLogin',$('pin').value).then(function(r){PT=r.token;PINFO=r;parent('review')})}
-function pBtns(){return'<button onclick="PT=null;TOKEN?kidHome():loginScreen()">خروج</button>'}
+function doLogin(){call('apiParentLogin',$('pin').value).then(function(r){PT=r.token;PINFO=r;LS.set('fs_pt',JSON.stringify(r));parent('review')})}
+function logoutParent(){call('logout',PT).catch(function(){});PT=null;PINFO={};LS.set('fs_pt',null);TOKEN?kidHome():loginScreen()}
+function pBtns(){return'<button onclick="logoutParent()">خروج</button>'}
 function pTabs(t){var T={review:'المراجعة',log:'خصم / مكافأة',acc:'الحسابات',dash:'الملخص',stats:'الإحصائيات',chat:'💬 الشات'};
   return'<div class="tabs">'+Object.keys(T).map(function(k){return'<button class="tab '+(t===k?'on':'')+'" onclick="parent(\''+k+'\')">'+T[k]+(k==='acc'&&STATE.waiting?' ('+STATE.waiting+')':'')+'</button>'}).join('')+'</div>'}
 function parent(t){loading();({review:pReview,log:pLog,acc:pAcc,dash:pDash,chat:chatScreen,stats:function(){pStats(monthOf(CFG.today))}})[t]()}

@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>فاستبقوا</title>
+<meta name="theme-color" content="#1f4e78">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="فاستبقوا">
+<style>
+  :root{--bg:#f4f6f8;--card:#fff;--ink:#1d2433;--mute:#6b7280;--pri:#1f4e78;--ok:#15803d;--okb:#dcfce7;
+        --warn:#b45309;--warnb:#fef3c7;--bad:#b91c1c;--badb:#fee2e2;--line:#e5e7eb}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:"Segoe UI",Tahoma,Arial,sans-serif;background:var(--bg);color:var(--ink);font-size:16px}
+  header{background:var(--pri);color:#fff;padding:12px 14px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:5}
+  header h1{font-size:18px;margin:0;flex:1;display:flex;align-items:center;gap:8px}
+  header button{background:rgba(255,255,255,.15);color:#fff;border:0;border-radius:8px;padding:6px 10px;font-size:14px}
+  main{max-width:720px;margin:0 auto;padding:12px}
+  .card{background:var(--card);border-radius:14px;padding:14px;margin-bottom:12px;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+  .card h2{font-size:16px;margin:0 0 10px;color:var(--pri)}
+  .row{padding:10px 0;border-bottom:1px solid var(--line)}
+  .row:last-child{border-bottom:0}
+  .row .t{font-weight:600;margin-bottom:8px;display:flex;justify-content:space-between;gap:8px;align-items:center}
+  .chips{display:flex;flex-wrap:wrap;gap:6px}
+  .chip{border:1.5px solid var(--line);background:#fff;border-radius:999px;padding:7px 12px;font-size:14px;color:var(--ink)}
+  .chip.on{background:var(--pri);border-color:var(--pri);color:#fff}
+  .chip:disabled{opacity:.55}
+  .badge{font-size:12px;border-radius:999px;padding:2px 8px;font-weight:600;white-space:nowrap}
+  .b-pend{background:var(--warnb);color:var(--warn)} .b-ok{background:var(--okb);color:var(--ok)} .b-mod{background:#e0e7ff;color:#3730a3} .b-off{background:var(--badb);color:var(--bad)}
+  .btn{background:var(--pri);color:#fff;border:0;border-radius:10px;padding:12px 16px;font-size:16px;font-weight:600;width:100%}
+  .btn.sec{background:#fff;color:var(--pri);border:1.5px solid var(--pri)}
+  .btn.red{background:#fff;color:var(--bad);border:1.5px solid var(--bad)}
+  .btn.sm{width:auto;padding:7px 12px;font-size:14px}
+  .tabs{display:flex;gap:6px;margin-bottom:12px;overflow-x:auto}
+  .tab{flex:1;white-space:nowrap;border:0;background:#e5e7eb;border-radius:10px;padding:10px;font-size:14px;color:var(--ink)}
+  .tab.on{background:var(--pri);color:#fff}
+  .kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+  .kpi{background:#f8fafc;border-radius:10px;padding:10px;text-align:center}
+  .kpi b{display:block;font-size:22px} .kpi span{font-size:12px;color:var(--mute)}
+  .score{font-size:44px;font-weight:800;text-align:center;margin:4px 0}
+  .muted{color:var(--mute);font-size:13px}
+  .cal{display:grid;grid-template-columns:repeat(7,1fr);gap:5px}
+  .day{border-radius:8px;padding:6px 2px;text-align:center;font-size:12px;min-height:50px;background:#f1f5f9}
+  .day b{display:block;font-size:13px}
+  .bar{height:10px;background:#e5e7eb;border-radius:6px;overflow:hidden}
+  .bar i{display:block;height:100%;background:var(--pri)}
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  td,th{padding:7px 4px;border-bottom:1px solid var(--line);text-align:right;vertical-align:middle}
+  th{color:var(--mute);font-weight:600;font-size:12px}
+  select,input,textarea{font-size:16px;padding:9px;border-radius:10px;border:1.5px solid var(--line);width:100%;background:#fff;font-family:inherit}
+  label.l{display:block;color:var(--mute);font-size:13px;margin:10px 0 4px}
+  .msg{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:#111827;color:#fff;padding:10px 16px;border-radius:10px;display:none;z-index:20;max-width:90%}
+  .spin{text-align:center;padding:30px;color:var(--mute)}
+  .flex{display:flex;gap:8px;align-items:center}
+  .between{justify-content:space-between}
+  .hide{display:none}
+  .av{border-radius:50%;object-fit:cover;background:#cbd5e1;display:inline-flex;align-items:center;justify-content:center;color:#fff;font-weight:700;flex:none}
+  .attach{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--pri);border:1.5px dashed var(--pri);border-radius:10px;padding:6px 10px;margin-top:8px;background:#fff}
+  .ev{max-width:100%;border-radius:10px;margin-top:8px}
+  .modal{position:fixed;inset:0;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;z-index:30;padding:16px}
+  .modal .box{background:#fff;border-radius:14px;padding:12px;max-width:640px;width:100%;max-height:90vh;overflow:auto}
+  .seg{display:flex;gap:6px}.seg .chip{flex:1;text-align:center}
+  .cats{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+  .cat{background:#fff;border:0;border-radius:14px;padding:14px 10px;box-shadow:0 1px 3px rgba(0,0,0,.08);display:flex;flex-direction:column;align-items:center;gap:4px;font-size:15px;color:var(--ink)}
+  .cat .ic{font-size:30px}
+  .prog{display:block;width:80%;height:6px;background:#e5e7eb;border-radius:4px;overflow:hidden}.prog i{display:block;height:100%;background:var(--ok)}
+  .itemrow{width:100%;background:#fff;border:0;border-bottom:1px solid var(--line);padding:12px 4px;display:flex;justify-content:space-between;align-items:center;text-align:right;font-size:15px;color:var(--ink);gap:8px}
+  .itemrow:last-child{border-bottom:0}.go{font-size:22px;color:var(--mute)}
+  .opts{display:grid;grid-template-columns:1fr;gap:8px}
+  .opt{border:2px solid var(--line);background:#fff;border-radius:12px;padding:14px;font-size:17px;color:var(--ink);font-weight:600}
+  .opt.on{background:var(--pri);border-color:var(--pri);color:#fff}.opt:disabled{opacity:.55}
+  .msgs{height:55vh;overflow-y:auto;display:flex;flex-direction:column;gap:8px}
+  .m{display:flex;gap:6px;align-items:flex-end}.m.me{flex-direction:row-reverse}
+  .bub{background:#f1f5f9;border-radius:14px;padding:8px 10px;max-width:78%;font-size:15px}.m.me .bub{background:#dbeafe}
+  .bub b{font-size:12px;color:var(--pri);display:block}
+</style>
+</head>
+<body>
+<header><h1 id="title">فاستبقوا ⭐</h1><span id="hbtns"></span></header>
+<main id="app"><div class="spin">جاري التحميل...</div></main>
+<div class="msg" id="msg"></div>
+
+<script>
+var CFG=null, TOKEN=null, ME=null, PT=null, STATE={};
+var LS={get:function(k){try{return localStorage.getItem(k)}catch(e){return null}},set:function(k,v){try{v==null?localStorage.removeItem(k):localStorage.setItem(k,v)}catch(e){}}};
+var API='https://script.google.com/macros/s/AKfycbwdjpC6M7UXuXSzyl81rHU0AkUOKf9Salcixtc2fZbU_jTAour9VlPEckfwDLU3XuXh-Q/exec';
+function onErr(m){
+    if(m.indexOf('SESSION')>-1){ if(PT){PT=null;toast('انتهت جلسة ولي الأمر');parentLogin()} else {TOKEN=null;ME=null;LS.set('fs_tok',null);toast(m.replace('SESSION: ',''));loginScreen()} }
+    else toast(m.replace(/^Error: /,''))}
+function call(fn){var args=[].slice.call(arguments,1);
+  return fetch(API,{method:'POST',credentials:'omit',redirect:'follow',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({fn:fn,args:args})})
+    .then(function(r){return r.json()},function(){throw{message:'مفيش اتصال بالإنترنت — جرّب تاني'}})
+    .then(function(j){if(!j.ok)throw{message:j.error};return j.data})
+    .catch(function(e){var m=(e&&e.message)||String(e);if(m.indexOf('Unexpected')>-1)m='السيرفر مش بيرد — جرّب تاني';onErr(m);throw e})}
+function $(id){return document.getElementById(id)}
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
+function pct(x){return x==null?'—':Math.round(x*100)+'%'}
+function toast(t){var m=$('msg');m.textContent=t;m.style.display='block';clearTimeout(toast.t);toast.t=setTimeout(function(){m.style.display='none'},3000)}
+function view(html,title,btns){$('app').innerHTML=html;$('title').innerHTML=title||'فاستبقوا ⭐';$('hbtns').innerHTML=btns||'';window.scrollTo(0,0)}
+function loading(){$('app').innerHTML='<div class="spin">جاري التحميل...</div>'}
+function color(p){return p==null?'#f1f5f9':p>=.85?'#bbf7d0':p>=.7?'#dcfce7':p>=.5?'#fef3c7':'#fee2e2'}
+function statusBadge(s){if(!s)return'';var c=s==='معتمد'||s==='مفعّل'?'b-ok':s==='معدَّل'?'b-mod':s==='موقوف'?'b-off':'b-pend';return'<span class="badge '+c+'">'+esc(s)+'</span>'}
+function av(photo,name,size){size=size||36;if(photo)return'<img class="av" src="'+esc(photo)+'" style="width:'+size+'px;height:'+size+'px">';
+  return'<span class="av" style="width:'+size+'px;height:'+size+'px;font-size:'+Math.round(size/2.2)+'px">'+esc((name||'?').trim().charAt(0))+'</span>'}
+function monthOf(d){return d.slice(0,7)}
+function shiftMonth(m,n){var y=+m.slice(0,4),mo=+m.slice(5,7)-1+n;y+=Math.floor(mo/12);mo=((mo%12)+12)%12;return y+'-'+String(mo+1).padStart(2,'0')}
+var MONTHS=['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
+function monthName(m){return MONTHS[+m.slice(5,7)-1]+' '+m.slice(0,4)}
+function seg(id,opts,cur){return'<div class="seg" id="'+id+'">'+opts.map(function(o){return'<button type="button" class="chip '+(o===cur?'on':'')+'" onclick="segPick(this)">'+esc(o)+'</button>'}).join('')+'</div>'}
+function segPick(b){[].forEach.call(b.parentNode.children,function(x){x.classList.remove('on')});b.classList.add('on')}
+function segVal(id){var b=$(id)&&$(id).querySelector('.on');return b?b.textContent:''}
+
+// ---------- files
+function readFile(file,maxDim,quality){return new Promise(function(res,rej){
+  if(!file)return res('');
+  if(/^audio\//.test(file.type)){ if(file.size>4*1024*1024){toast('التسجيل كبير — خليه أقل من دقيقة');return rej()}
+    var r=new FileReader();r.onload=function(){res(r.result)};r.onerror=rej;r.readAsDataURL(file);return}
+  if(!/^image\//.test(file.type)){toast('اختار صورة أو تسجيل صوت');return rej()}
+  var img=new Image(),url=URL.createObjectURL(file);
+  img.onload=function(){var s=Math.min(1,maxDim/Math.max(img.width,img.height)),c=document.createElement('canvas');
+    c.width=Math.round(img.width*s);c.height=Math.round(img.height*s);c.getContext('2d').drawImage(img,0,0,c.width,c.height);
+    URL.revokeObjectURL(url);res(c.toDataURL('image/jpeg',quality))};
+  img.onerror=function(){toast('الصورة مش مقروءة');rej()};img.src=url})}
+function squareAvatar(file){return new Promise(function(res,rej){
+  if(!file)return res('');var img=new Image(),url=URL.createObjectURL(file);
+  img.onload=function(){var m=Math.min(img.width,img.height),c=document.createElement('canvas');c.width=c.height=180;
+    c.getContext('2d').drawImage(img,(img.width-m)/2,(img.height-m)/2,m,m,0,0,180,180);URL.revokeObjectURL(url);res(c.toDataURL('image/jpeg',.75))};
+  img.onerror=function(){toast('الصورة مش مقروءة');rej()};img.src=url})}
+function showEvidence(id){
+  var d=document.createElement('div');d.className='modal';d.onclick=function(e){if(e.target===d)d.remove()};
+  d.innerHTML='<div class="box"><div class="spin">جاري تحميل الدليل...</div></div>';document.body.appendChild(d);
+  call('apiEvidence',PT||TOKEN,id).then(function(u){
+    var inner=/^data:audio/.test(u)?'<audio controls src="'+u+'" style="width:100%"></audio>':'<img class="ev" src="'+u+'">';
+    d.firstChild.innerHTML=inner+'<div style="height:8px"></div><button class="btn sec" onclick="this.closest(\'.modal\').remove()">قفل</button>'}).catch(function(){d.remove()})}
+function evBtn(id){return id?'<button class="btn sm sec" style="margin-top:6px" onclick="showEvidence(\''+esc(id)+'\')">📎 عرض الدليل</button>':''}
+
+// ---------- start / auth
+function boot(){
+  call('apiConfig').then(function(c){CFG=c;TOKEN=LS.get('fs_tok');
+    if(!TOKEN)return loginScreen();
+    call('apiMe',TOKEN).then(function(me){ME=me;kidHome()})});
+}
+function loginScreen(){PT=null;
+  view('<div class="card"><h2>تسجيل الدخول</h2>'+
+    '<label class="l">رقم الموبايل أو الإيميل</label><input id="lu" autocomplete="username" inputmode="email">'+
+    '<label class="l">كلمة السر</label><input id="lp" type="password" autocomplete="current-password">'+
+    '<div style="height:12px"></div><button class="btn" onclick="doKidLogin()">دخول</button>'+
+    '<div style="height:8px"></div><button class="btn sec" onclick="registerScreen()">حساب جديد ✨</button></div>'+
+    '<div class="card"><button class="btn sec" onclick="parentLogin()">ولي الأمر 🔒</button></div>');
+}
+function doKidLogin(){var u=$('lu').value,p=$('lp').value;if(!u||!p)return toast('اكتب البيانات');loading();
+  call('apiLogin',u,p).then(function(r){TOKEN=r.token;ME=r.me;LS.set('fs_tok',TOKEN);kidHome()}).catch(loginScreen)}
+function registerScreen(){STATE.regPhoto='';
+  view('<div class="card"><h2>حساب جديد</h2>'+
+    '<div style="text-align:center"><span id="rph">'+av('', '?', 90)+'</span><br><label class="attach">📷 اختار صورتك<input type="file" accept="image/*" class="hide" onchange="pickRegPhoto(this)"></label></div>'+
+    '<label class="l">اسمك اللي هيظهر</label><input id="rd">'+
+    '<label class="l">أنا</label>'+seg('rs',['ولد','بنت'],'')+
+    '<label class="l">سنة الميلاد</label><input id="rb" type="number" inputmode="numeric" placeholder="مثال: 2014">'+
+    '<label class="l">رقم الموبايل أو الإيميل (ده اللي هتدخل بيه)</label><input id="ru" inputmode="email" autocomplete="username">'+
+    '<label class="l">كلمة السر</label><input id="rp" type="password" autocomplete="new-password">'+
+    '<label class="l">أكّد كلمة السر</label><input id="rp2" type="password" autocomplete="new-password">'+
+    '<div style="height:14px"></div><button class="btn" onclick="doRegister()">إنشاء الحساب</button>'+
+    '<div style="height:8px"></div><button class="btn sec" onclick="loginScreen()">رجوع</button></div>','حساب جديد');
+}
+function pickRegPhoto(inp){squareAvatar(inp.files[0]).then(function(d){STATE.regPhoto=d;$('rph').innerHTML=av(d,'',90)})}
+function doRegister(){
+  if($('rp').value!==$('rp2').value)return toast('كلمتين السر مش زي بعض');
+  var sex=segVal('rs');if(!sex)return toast('اختار ولد أو بنت');
+  var a=[$('ru').value,$('rp').value,$('rd').value,sex,$('rb').value,STATE.regPhoto];loading();
+  call('apiRegister',a[0],a[1],a[2],a[3],a[4],a[5]).then(function(){
+    view('<div class="card" style="text-align:center"><h2>تم إنشاء الحساب 🎉</h2><p>بابا أو ماما لازم يوافقوا على الحساب الأول، وبعدها تقدر تدخل.</p>'+
+      '<button class="btn" onclick="loginScreen()">رجوع لتسجيل الدخول</button></div>')}).catch(registerScreen)}
+function logoutKid(){call('logout',TOKEN);TOKEN=null;ME=null;LS.set('fs_tok',null);loginScreen()}
+
+// ---------- kid
+function kidHeader(){return av(ME.photo,ME.display,30)+' '+esc(ME.display)}
+function kidBtns(){return'<button onclick="chatScreen()">💬</button> <button onclick="profileScreen()">⚙️</button> <button onclick="logoutKid()">خروج</button>'}
+function kidHome(date,tab){
+  STATE={date:date||CFG.today,tab:tab||'day',answers:{},files:{}};
+  if(STATE.tab==='month')return kidMonth(monthOf(STATE.date));
+  loading();
+  call('apiKidDay',TOKEN,STATE.date).then(function(d){STATE.data=d;renderKid()});
+}
+function kidTabs(){return'<div class="tabs"><button class="tab '+(STATE.tab==='day'?'on':'')+'" onclick="kidHome(STATE.date,\'day\')">تسجيل اليوم</button>'+
+  '<button class="tab '+(STATE.tab==='month'?'on':'')+'" onclick="kidHome(STATE.date,\'month\')">درجاتي في الشهر</button></div>'}
+function renderKid(){
+  var d=STATE.data,ent={};d.entries.forEach(function(e){ent[e.kind+'|'+e.item]=e});STATE.ent=ent;
+  var h=kidTabs(),day=d.day;
+  h+='<div class="card"><input type="date" value="'+STATE.date+'" max="'+CFG.today+'" onchange="kidHome(this.value)">';
+  if(day){
+    h+='<div class="score" style="color:'+(day.success?'var(--ok)':'var(--ink)')+'">'+pct(day.pct)+'</div>';
+    h+='<div style="text-align:center" class="muted">'+(day.reviewed?(day.success?'يوم ناجح ⭐':'اليوم ما اكتملش'):(day.pending?'⏳ مستني المراجعة ('+day.pending+' بند)':'لسه ما سجّلتش البنود'))+' — '+day.total+' نقطة من '+day.max+'</div>';
+    if(day.pen)h+='<div class="muted" style="text-align:center;color:var(--bad)">خصم السلوك: '+day.pen+'</div>';
+    if(day.manual)h+='<div class="muted" style="text-align:center;color:'+(day.manual>0?'var(--ok)':'var(--bad)')+'">نقاط من بابا/ماما: '+(day.manual>0?'+':'')+day.manual+'</div>';
+    if(day.honesty)h+='<div class="muted" style="text-align:center;color:var(--ok)">مكافأة الصدق: +'+day.honesty+'</div>';
+    if(day.sunnah)h+='<div class="muted" style="text-align:center;color:var(--ok)">🌙 نقاط السنن: +'+day.sunnah+'</div>';
+  } else h+='<div class="muted" style="text-align:center;margin-top:10px">لسه ما سجّلتش اليوم ده</div>';
+  var s=d.summary;
+  h+='<div class="kpis" style="margin-top:10px"><div class="kpi"><b>'+pct(s.week)+'</b><span>متوسط الأسبوع</span></div>'+
+     '<div class="kpi"><b>'+(s.improve==null?'—':(s.improve>=0?'▲ ':'▼ ')+Math.abs(Math.round(s.improve*100))+'%')+'</b><span>عن الأسبوع اللي فات</span></div>'+
+     '<div class="kpi"><b>'+s.streak+' 🔥</b><span>أيام ناجحة ورا بعض</span></div></div></div>';
+  h+='<div class="cats">';
+  CATS().forEach(function(c,i){
+    var done=0,ok=0,wait=0;c.items.forEach(function(it){var e=ent[it.kind+'|'+it.item];if(e){done++;if(e.status==='بانتظار المراجعة')wait++;else ok++}});
+    var full=done===c.items.length;
+    h+='<button class="cat" onclick="kidCat('+i+')"><span class="ic">'+c.icon+'</span><b>'+c.title+'</b>'+
+      '<span class="muted">'+done+' من '+c.items.length+(full?' ✅':'')+'</span>'+
+      '<span class="prog"><i style="width:'+Math.round(done/c.items.length*100)+'%"></i></span>'+
+      (wait?'<span class="badge b-pend">'+wait+' مستني</span>':'')+'</button>'});
+  if(d.pens.length)h+='<button class="cat" onclick="kidPens()"><span class="ic">👨‍👩‍👧</span><b>من بابا وماما</b><span class="muted">'+d.pens.length+' تسجيل</span></button>';
+  h+='</div>';
+  view(h,kidHeader(),kidBtns());
+}
+function CATS(){
+  var c=[{icon:'🕌',title:'الصلاة',items:CFG.prayers.map(function(p){return{kind:'صلاة',item:p,label:'صلاة '+p,opts:CFG.prayerOpts,
+           sun:(CFG.sunnah||[]).filter(function(s){return s.prayer===p}).map(function(s){return{kind:'سنة',item:p+' - '+s.name,label:s.name,pts:s.pts}})}})},
+         {icon:'📱',title:'الموبايل والشاشات',items:[{kind:'شاشات',item:'الشاشات',label:'مدة الشاشات النهارده',opts:CFG.screenOpts,attach:true}]}];
+  [['أساسي','📚','الأساسيات'],['عادة','🧹','العادات'],['إضافي','🎈','حاجات بتحبها']].forEach(function(g){
+    var its=CFG.items.filter(function(i){return i.type===g[0]});
+    if(its.length)c.push({icon:g[1],title:g[2],items:its.map(function(i){return{kind:'بند',item:i.name,label:i.name,pts:i.full,opts:['تم','جزئي','لا','لا ينطبق']}})})});
+  return c;
+}
+function backBtn(fn){return'<button onclick="'+fn+'">رجوع</button>'}
+function kidCat(i){
+  STATE.cat=i;var c=CATS()[i],h='<div class="card"><h2>'+c.icon+' '+c.title+'</h2>';
+  c.items.forEach(function(it,j){var e=STATE.ent[it.kind+'|'+it.item];
+    h+='<button class="itemrow" onclick="kidItem('+i+','+j+')"><span><b>'+esc(it.label)+'</b>'+(it.pts?' <span class="muted">('+it.pts+')</span>':'')+
+      '<br><span class="muted">'+(e?'قلت: '+esc(e.self)+(e.status==='معدَّل'?' ← اتعدّلت إلى: '+esc(e.parent):''):'لسه ما سجّلتش')+'</span>'+sunLine(it)+'</span>'+
+      (e?statusBadge(e.status):'<span class="go">‹</span>')+'</button>'});
+  view(h+'</div><div class="muted" style="text-align:center">'+esc(STATE.date)+'</div>',kidHeader(),backBtn('renderKid()'));
+}
+function kidItem(i,j){
+  var it=CATS()[i].items[j],key=it.kind+'|'+it.item,e=STATE.ent[key],locked=e&&e.status!=='بانتظار المراجعة';
+  STATE.item={i:i,j:j,it:it,val:e?e.self:'',file:'',sun:{}};
+  var h='<div class="card"><h2>'+esc(it.label)+'</h2>';
+  if(e)h+='<div style="margin-bottom:10px">'+statusBadge(e.status)+(e.status==='معدَّل'?' <span class="muted">اتعدّلت إلى: <b>'+esc(e.parent)+'</b></span>':'')+'</div>';
+  h+='<div class="opts">';
+  it.opts.forEach(function(o){h+='<button class="opt '+(STATE.item.val===o?'on':'')+'" '+(locked?'disabled':'')+' onclick="pickOpt(this,\''+esc(o)+'\')">'+esc(o)+'</button>'});
+  h+='</div>';
+  if(it.sun&&it.sun.length){h+='<h2 style="margin-top:16px">🌙 السنن <span class="muted">(نقاط إضافية)</span></h2>';
+    it.sun.forEach(function(sn,k){var se=STATE.ent[sn.kind+'|'+sn.item],sl=se&&se.status!=='بانتظار المراجعة',cur=se?se.self:'';
+      STATE.item.sun[k]=cur;
+      h+='<div class="row"><div class="t"><span>'+esc(sn.label)+' <span class="muted">(+'+sn.pts+')</span></span>'+statusBadge(se&&se.status)+'</div><div class="chips">'+
+        ['صليتها','لا'].map(function(o){return'<button class="chip '+(cur===o?'on':'')+'" '+(sl?'disabled':'')+' onclick="pickSun(this,'+k+',\''+o+'\')">'+o+'</button>'}).join('')+'</div></div>'})}
+  if(it.attach&&!locked)h+='<label class="attach" id="att">📎 '+(e&&e.file?'تغيير الصورة':'إرفاق سكرين شوت من Family Link / Digital Wellbeing')+'<input type="file" accept="image/*" class="hide" onchange="pickItemFile(this)"></label>';
+  if(e&&e.file)h+=' '+evBtn(e.file);
+  var sunOpen=(it.sun||[]).some(function(sn){var se=STATE.ent[sn.kind+'|'+sn.item];return!se||se.status==='بانتظار المراجعة'});
+  if(locked)h+='<p class="muted">البند ده اتراجع خلاص ومينفعش يتغيّر.</p>';
+  if(!locked||sunOpen)h+='<div style="height:14px"></div><button class="btn" id="sendBtn" onclick="sendItem()">إرسال ✉️</button>';
+  view(h+'</div>',kidHeader(),backBtn('kidCat('+i+')'));
+}
+function sunLine(it){if(!it.sun||!it.sun.length)return'';var n=0;it.sun.forEach(function(sn){var e=STATE.ent[sn.kind+'|'+sn.item];if(e&&e.self==='صليتها')n++});
+  return'<br><span class="muted">🌙 السنن: '+n+' من '+it.sun.length+'</span>'}
+function pickSun(b,k,v){STATE.item.sun[k]=v;[].forEach.call(b.parentNode.children,function(x){x.classList.remove('on')});b.classList.add('on')}
+function pickOpt(b,v){STATE.item.val=v;[].forEach.call(b.parentNode.children,function(x){x.classList.remove('on')});b.classList.add('on')}
+function pickItemFile(inp){readFile(inp.files[0],1280,.7).then(function(d){STATE.item.file=d;$('att').firstChild.textContent='✅ الصورة جاهزة '})}
+function sendItem(){
+  var s=STATE.item,list=[];
+  var me=STATE.ent[s.it.kind+'|'+s.it.item];
+  if(s.val&&!(me&&me.status!=='بانتظار المراجعة'))list.push({kind:s.it.kind,item:s.it.item,value:s.val,file:s.file});
+  (s.it.sun||[]).forEach(function(sn,k){var se=STATE.ent[sn.kind+'|'+sn.item];if(s.sun[k]&&!(se&&se.status!=='بانتظار المراجعة'))list.push({kind:sn.kind,item:sn.item,value:s.sun[k]})});
+  if(!list.length)return toast('اختار تقييمك الأول');
+  $('sendBtn').disabled=true;$('sendBtn').textContent='جاري الإرسال...';
+  call('apiSubmit',TOKEN,STATE.date,list).then(function(r){
+    toast(r.locked?'البند ده اتراجع خلاص':'اتبعت ✅');
+    return call('apiKidDay',TOKEN,STATE.date)}).then(function(d){STATE.data=d;
+    var ent={};d.entries.forEach(function(e){ent[e.kind+'|'+e.item]=e});STATE.ent=ent;
+    var c=CATS()[s.i],next=-1;
+    for(var k=s.j+1;k<c.items.length;k++)if(!ent[c.items[k].kind+'|'+c.items[k].item]){next=k;break}
+    next>-1?kidItem(s.i,next):kidCat(s.i)})
+  .catch(function(){if($('sendBtn')){$('sendBtn').disabled=false;$('sendBtn').textContent='إرسال ✉️'}});
+}
+function kidPens(){var h='<div class="card"><h2>👨‍👩‍👧 من بابا وماما</h2>';
+  STATE.data.pens.forEach(function(p){h+='<div class="row">'+(p.type==='نقاط'?(p.count>0?'🌟 +':'🔻 ')+p.count+' — '+esc(p.behavior):'⚠️ '+esc(p.behavior)+' × '+p.count+(p.repaired?' — اعتذرت/أصلحت ✅':''))+
+    (p.who?' <span class="muted">('+esc(p.who)+')</span>':'')+'<br>'+evBtn(p.file)+'</div>'});
+  view(h+'</div>',kidHeader(),backBtn('renderKid()'))}
+function kidMonth(m){
+  STATE.tab='month';loading();
+  call('apiMonth',TOKEN,m).then(function(d){
+    var h=kidTabs()+'<div class="card"><div class="flex between"><button class="btn sm sec" onclick="kidMonth(\''+shiftMonth(m,-1)+'\')">→ السابق</button><b>'+monthName(m)+'</b>'+
+      '<button class="btn sm sec" onclick="kidMonth(\''+shiftMonth(m,1)+'\')">التالي ←</button></div>'+
+      '<div class="kpis" style="margin-top:10px"><div class="kpi"><b>'+pct(d.avg)+'</b><span>متوسط الشهر</span></div>'+
+      '<div class="kpi"><b>'+d.success+' ⭐</b><span>أيام ناجحة</span></div><div class="kpi"><b>'+Math.round(d.points)+'</b><span>مجموع النقاط</span></div></div></div>'+
+      '<div class="card">'+calendar(m,d.days,true)+'<p class="muted">اضغط على أي يوم تشوف تفاصيله. ⏳ = مستني المراجعة.</p></div>';
+    view(h,kidHeader(),kidBtns())});
+}
+function calendar(m,days,click){
+  var map={};days.forEach(function(d){map[d.date]=d});
+  var first=new Date(m+'-01T12:00:00Z'),n=new Date(Date.UTC(+m.slice(0,4),+m.slice(5,7),0)).getUTCDate();
+  var h='<div class="cal">';['سبت','أحد','اثنين','ثلاثاء','أربعاء','خميس','جمعة'].forEach(function(w){h+='<div class="muted" style="text-align:center">'+w+'</div>'});
+  var lead=(first.getUTCDay()+1)%7;for(var i=0;i<lead;i++)h+='<div></div>';
+  for(var d=1;d<=n;d++){var ds=m+'-'+String(d).padStart(2,'0'),x=map[ds],ok=click&&ds<=CFG.today;
+    h+='<div class="day" style="background:'+(x?(x.reviewed?color(x.pct):'#fef9c3'):'#f1f5f9')+';'+(ok?'cursor:pointer':'')+'" '+(ok?'onclick="kidHome(\''+ds+'\')"':'')+'><b>'+d+'</b>'+
+      (x?(x.reviewed?pct(x.pct)+(x.success?'⭐':''):'⏳'):'')+'</div>'}
+  return h+'</div>';
+}
+function profileScreen(){STATE.newPhoto=null;
+  view('<div class="card"><h2>بروفايلي</h2><div style="text-align:center"><span id="pph">'+av(ME.photo,ME.display,96)+'</span><br>'+
+    '<label class="attach">📷 تغيير الصورة<input type="file" accept="image/*" class="hide" onchange="pickProfPhoto(this)"></label></div>'+
+    '<label class="l">اسمي اللي بيظهر</label><input id="pd" value="'+esc(ME.display)+'">'+
+    '<label class="l">تغيير كلمة السر (اختياري) — القديمة</label><input id="po" type="password">'+
+    '<label class="l">الجديدة</label><input id="pn" type="password">'+
+    '<div style="height:12px"></div><button class="btn" onclick="saveProfile()">حفظ</button>'+
+    '<div style="height:8px"></div><button class="btn sec" onclick="kidHome()">رجوع</button></div>',kidHeader(),'');
+}
+function pickProfPhoto(inp){squareAvatar(inp.files[0]).then(function(d){STATE.newPhoto=d;$('pph').innerHTML=av(d,'',96)})}
+function saveProfile(){call('apiUpdateProfile',TOKEN,$('pd').value,STATE.newPhoto,$('po').value,$('pn').value).then(function(me){ME=me;toast('اتحفظ ✅');kidHome()})}
+
+// ---------- parent
+function parentLogin(){
+  view('<div class="card"><h2>دخول ولي الأمر</h2><input id="pin" type="password" autocomplete="off">'+
+    '<div style="height:10px"></div><button class="btn" onclick="doLogin()">دخول</button>'+
+    '<div style="height:8px"></div><button class="btn sec" onclick="TOKEN?kidHome():loginScreen()">رجوع</button></div>','ولي الأمر 🔒');
+  setTimeout(function(){$('pin')&&$('pin').focus()},50);
+}
+function doLogin(){call('apiParentLogin',$('pin').value).then(function(t){PT=t;parent('review')})}
+function pBtns(){return'<button onclick="PT=null;TOKEN?kidHome():loginScreen()">خروج</button>'}
+function pTabs(t){var T={review:'المراجعة',log:'خصم / مكافأة',acc:'الحسابات',dash:'الملخص',stats:'الإحصائيات',chat:'💬 الشات'};
+  return'<div class="tabs">'+Object.keys(T).map(function(k){return'<button class="tab '+(t===k?'on':'')+'" onclick="parent(\''+k+'\')">'+T[k]+(k==='acc'&&STATE.waiting?' ('+STATE.waiting+')':'')+'</button>'}).join('')+'</div>'}
+function parent(t){loading();({review:pReview,log:pLog,acc:pAcc,dash:pDash,chat:chatScreen,stats:function(){pStats(monthOf(CFG.today))}})[t]()}
+function pv(h){view(h,'ولي الأمر 🔒',pBtns())}
+
+function pReview(){
+  call('apiPending',PT).then(function(list){
+    STATE.pending=list;STATE.dec={};
+    var h=pTabs('review');
+    if(!list.length)return pv(h+'<div class="card"><h2>مفيش حاجة مستنية مراجعة 👌</h2></div>');
+    var groups={};list.forEach(function(x){(groups[x.kid+'|'+x.date]=groups[x.kid+'|'+x.date]||[]).push(x)});
+    Object.keys(groups).forEach(function(g){var it=groups[g];
+      h+='<div class="card"><div class="flex between" style="margin-bottom:6px"><h2 style="margin:0">'+esc(it[0].display)+' — '+it[0].date+'</h2>'+
+        '<button class="btn sm" onclick="approveGroup(\''+esc(g)+'\')">اعتماد الكل ✅</button></div>';
+      it.forEach(function(x){var opts=x.kind==='صلاة'?CFG.prayerOpts:x.kind==='شاشات'?CFG.screenOpts:x.kind==='سنة'?['صليتها','لا']:['تم','جزئي','لا','لا ينطبق'];
+        h+='<div class="row"><div class="t"><span>'+esc(x.kind==='صلاة'?'صلاة '+x.item:x.kind==='سنة'?'🌙 سنة '+x.item:x.item)+'</span><span class="muted">قال: <b>'+esc(x.self)+'</b></span></div><div class="chips">';
+        opts.forEach(function(o){h+='<button class="chip '+(o===x.self?'on':'')+'" onclick="decide(this,\''+x.id+'\',\''+esc(o)+'\')">'+esc(o)+'</button>'});
+        h+='</div>'+evBtn(x.file)+'</div>'});
+      h+='</div>'});
+    pv(h+'<p class="muted">اختار تقييم مختلف لو عايز تعدّل، وبعدين «اعتماد الكل». التعديل بيلغي مكافأة الصدق لليوم ده.</p>');
+  });
+}
+function decide(btn,id,val){STATE.dec[id]=val;[].forEach.call(btn.parentNode.children,function(b){b.classList.remove('on')});btn.classList.add('on')}
+function approveGroup(g){var it=STATE.pending.filter(function(x){return x.kid+'|'+x.date===g});
+  call('apiReview',PT,it.map(function(x){return{id:x.id,value:STATE.dec[x.id]||x.self}})).then(function(n){toast('اتعتمد '+n+' بند ✅');pReview()})}
+
+function pLog(){
+  call('apiDashboard',PT).then(function(d){
+    STATE.waiting=d.waiting;STATE.logFile='';
+    if(!d.kidsList.length)return pv(pTabs('log')+'<div class="card">مفيش حسابات مفعّلة لسه — وافق عليهم من «الحسابات».</div>');
+    var kids='<select id="lk">'+d.kidsList.map(function(k){return'<option value="'+esc(k.user)+'">'+esc(k.display)+'</option>'}).join('')+'</select>';
+    var h=pTabs('log')+'<div class="card"><h2>تسجيل جديد</h2>'+seg('lt',['خصم سلوك','نقاط إضافية'],'خصم سلوك')+
+      '<label class="l">الطفل</label>'+kids+
+      '<div id="lpen"><label class="l">السلوك</label><select id="lb">'+CFG.pens.map(function(k){return'<option>'+esc(k)+'</option>'}).join('')+'</select>'+
+      '<label class="l">عدد المرات</label><input id="lc" type="number" min="1" max="20" value="1">'+
+      '<label class="flex" style="margin:10px 0"><input id="lr" type="checkbox" style="width:auto"> اعتذر / أصلح الغلط</label></div>'+
+      '<div id="lpts" class="hide"><label class="l">النقاط (موجب = مكافأة، سالب = خصم)</label><input id="lpv" type="number" min="-20" max="20" value="2">'+
+      '<label class="l">السبب</label><input id="lrs" placeholder="مثال: ساعد أخوه في المذاكرة"></div>'+
+      '<label class="l">من</label>'+seg('lw',['بابا','ماما'],'بابا')+
+      '<label class="l">التاريخ</label><input id="ld" type="date" value="'+CFG.today+'" max="'+CFG.today+'">'+
+      '<label class="attach" id="latt">📎 إرفاق دليل (صورة أو تسجيل صوت)<input type="file" accept="image/*,audio/*" class="hide" onchange="pickLogFile(this)"></label>'+
+      '<div style="height:12px"></div><button class="btn" id="lgo" onclick="addLog()">تسجيل</button></div>';
+    h+='<div class="card"><h2>سجل النهارده</h2>';
+    if(!d.logToday.length)h+='<div class="muted">مفيش 👍</div>';
+    d.logToday.forEach(function(p){h+='<div class="row"><div class="flex between"><span>'+esc(p.display)+' — '+
+      (p.type==='نقاط'?(p.count>0?'🌟 +':'🔻 ')+p.count+' ('+esc(p.behavior)+')':'⚠️ '+esc(p.behavior)+' × '+p.count+(p.repaired?' ✅ اعتذر':''))+(p.who?' <span class="muted">— '+esc(p.who)+'</span>':'')+'</span></div>'+
+      '<div class="flex" style="margin-top:6px">'+(p.type==='خصم'?'<button class="btn sm sec" onclick="togRep(\''+p.id+'\')">'+(p.repaired?'إلغاء الاعتذار':'اعتذر')+'</button>':'')+
+      '<button class="btn sm red" onclick="delLog(\''+p.id+'\')">حذف</button>'+evBtn(p.file).replace('margin-top:6px','')+'</div></div>'});
+    pv(h+'</div>');
+    $('lt').addEventListener('click',function(){var pts=segVal('lt')==='نقاط إضافية';$('lpen').classList.toggle('hide',pts);$('lpts').classList.toggle('hide',!pts)});
+  });
+}
+function pickLogFile(inp){readFile(inp.files[0],1280,.7).then(function(d){STATE.logFile=d;$('latt').firstChild.textContent='✅ الدليل جاهز '})}
+function addLog(){var pts=segVal('lt')==='نقاط إضافية';$('lgo').disabled=true;
+  var a=pts?['نقاط',$('lrs').value,$('lpv').value,false]:['خصم',$('lb').value,$('lc').value,$('lr').checked];
+  call('apiLog',PT,$('lk').value,$('ld').value,a[0],a[1],a[2],a[3],segVal('lw'),STATE.logFile).then(function(){toast('اتسجل ✅');pLog()}).catch(function(){$('lgo').disabled=false})}
+function togRep(id){call('apiToggleRepair',PT,id).then(pLog)}
+function delLog(id){if(confirm('حذف التسجيل ده؟'))call('apiDeleteLog',PT,id).then(pLog)}
+
+function pAcc(){
+  call('apiAccounts',PT).then(function(list){
+    STATE.accs=list;STATE.waiting=list.filter(function(a){return a.status==='بانتظار الموافقة'}).length;
+    var h=pTabs('acc');
+    if(!list.length)h+='<div class="card">لسه محدش عمل حساب. ابعت اللينك للأولاد وكل واحد يعمل «حساب جديد».</div>';
+    list.sort(function(a,b){return(a.status==='بانتظار الموافقة'?0:1)-(b.status==='بانتظار الموافقة'?0:1)});
+    list.forEach(function(a,i){
+      h+='<div class="card"><div class="flex">'+av(a.photo,a.display,52)+'<div style="flex:1"><b>'+esc(a.display)+'</b> '+statusBadge(a.status)+
+        '<div class="muted">'+esc(a.user)+' — '+esc(a.sex)+(a.birth?' — مواليد '+a.birth:' — سنة الميلاد ناقصة')+'</div></div></div>'+
+        '<div class="flex" style="margin-top:10px;flex-wrap:wrap">'+
+        (a.status!=='مفعّل'?'<button class="btn sm" onclick="setAcc('+i+',{status:\'مفعّل\'})">موافقة ✅</button>':'<button class="btn sm red" onclick="setAcc('+i+',{status:\'موقوف\'})">إيقاف</button>')+
+        '<button class="btn sm sec" onclick="editAcc('+i+')">تعديل</button></div><div id="ed'+i+'"></div></div>'});
+    pv(h);
+  });
+}
+function setAcc(i,patch){call('apiSetAccount',PT,STATE.accs[i].user,patch).then(function(){toast('اتحفظ ✅');pAcc()})}
+function editAcc(i){var a=STATE.accs[i];
+  $('ed'+i).innerHTML='<label class="l">الاسم الظاهر</label><input id="ea'+i+'" value="'+esc(a.display)+'">'+
+    '<label class="l">النوع</label>'+seg('es'+i,['ولد','بنت'],a.sex)+
+    '<label class="l">سنة الميلاد</label><input id="eb'+i+'" type="number" value="'+esc(a.birth||'')+'">'+
+    '<label class="l">كلمة سر جديدة (لو نسيها)</label><input id="ep'+i+'" type="text" placeholder="سيبها فاضية لو مش عايز تغيّرها">'+
+    '<div style="height:10px"></div><button class="btn" onclick="setAcc('+i+',{display:$(\'ea'+i+'\').value,sex:segVal(\'es'+i+'\'),birth:$(\'eb'+i+'\').value,password:$(\'ep'+i+'\').value})">حفظ</button>'}
+
+function pDash(){
+  call('apiDashboard',PT).then(function(d){STATE.waiting=d.waiting;
+    var h=pTabs('dash')+'<div class="card"><h2>⭐ نجم الأسبوع (الأكثر تحسنًا): '+esc(d.star||'— محتاج أسبوعين بيانات')+'</h2>'+
+      '<table><tr><th></th><th>الاسم</th><th>اليوم</th><th>الأسبوع</th><th>التحسن</th><th>ناجح/7</th><th>الشهر</th><th>🔥</th></tr>';
+    d.kids.forEach(function(k){h+='<tr><td>'+av(k.photo,k.display,28)+'</td><td><b>'+esc(k.display)+'</b></td><td>'+(k.today?(k.today.reviewed?pct(k.today.pct):'⏳'):'—')+'</td><td>'+pct(k.week)+'</td>'+
+      '<td style="color:'+(k.improve>0?'var(--ok)':k.improve<0?'var(--bad)':'inherit')+'">'+(k.improve==null?'—':(k.improve>0?'+':'')+Math.round(k.improve*100)+'%')+'</td>'+
+      '<td>'+k.weekSuccess+'</td><td>'+pct(k.month)+'</td><td>'+k.streak+'</td></tr>'});
+    pv(h+'</table></div>')});
+}
+function pStats(m){
+  loading();
+  call('apiStats',PT,m).then(function(d){STATE.stats=d;
+    var h=pTabs('stats')+'<div class="card"><div class="flex between"><button class="btn sm sec" onclick="pStats(\''+shiftMonth(m,-1)+'\')">→ السابق</button><b>'+monthName(m)+'</b>'+
+      '<button class="btn sm sec" onclick="pStats(\''+shiftMonth(m,1)+'\')">التالي ←</button></div></div>';
+    h+='<div class="card"><h2>مقارنة سريعة</h2><table><tr><th>الاسم</th><th>أيام</th><th>المتوسط</th><th>الأساسيات</th><th>ناجح</th><th>الصدق</th><th>🌙 سنن</th><th>مكافآت</th><th>النقاط</th></tr>';
+    d.kids.forEach(function(k){h+='<tr><td><b>'+esc(k.display)+'</b></td><td>'+k.reviewedDays+'</td><td>'+pct(k.avg)+'</td><td>'+pct(k.ess)+'</td><td>'+k.success+'</td><td>'+pct(k.honesty)+'</td><td>'+k.sunnah+'</td><td>+'+k.plus+(k.minus?' / '+k.minus:'')+'</td><td>'+Math.round(k.points)+'</td></tr>'});
+    h+='</table><p class="muted">الصدق = نسبة البنود اللي اتعتمدت زي ما الطفل قيّمها بالظبط.</p></div>';
+    d.kids.forEach(function(k){
+      h+='<div class="card"><div class="flex" style="margin-bottom:8px">'+av(k.photo,k.display,40)+'<h2 style="margin:0">'+esc(k.display)+'</h2></div>'+calendar(m,k.days,false);
+      var items=k.items.filter(function(i){return i.rate!=null}).sort(function(a,b){return a.rate-b.rate});
+      if(items.length){h+='<h2 style="margin-top:14px">البنود (الأضعف الأول)</h2>';
+        items.forEach(function(i){h+='<div style="margin:6px 0"><div class="flex between" style="font-size:14px"><span>'+esc(i.name)+'</span><b>'+pct(i.rate)+'</b></div><div class="bar"><i style="width:'+Math.round(i.rate*100)+'%;background:'+(i.rate<.5?'var(--bad)':i.rate<.75?'var(--warn)':'var(--ok)')+'"></i></div></div>'})}
+      var pt=0,o;for(o in k.prayer)pt+=k.prayer[o];
+      if(pt){h+='<h2 style="margin-top:14px">الصلاة ('+pt+' صلاة)</h2><table>';for(o in k.prayer)h+='<tr><td>'+esc(o)+'</td><td>'+k.prayer[o]+'</td><td>'+Math.round(k.prayer[o]/pt*100)+'%</td></tr>';h+='</table>'}
+      var st=0;for(o in k.screens)st+=k.screens[o];
+      if(st){h+='<h2 style="margin-top:14px">الشاشات ('+st+' يوم)</h2><table>';for(o in k.screens)h+='<tr><td>'+esc(o)+'</td><td>'+k.screens[o]+' يوم</td></tr>';h+='</table>'}
+      var pk=Object.keys(k.pens);
+      if(pk.length){h+='<h2 style="margin-top:14px">خصومات السلوك</h2><table>';pk.forEach(function(p){h+='<tr><td>'+esc(p)+'</td><td>'+k.pens[p]+' مرة</td></tr>'});h+='</table>'}
+      h+='</div>'});
+    pv(h+'<button class="btn sec" onclick="exportCsv()">تنزيل إحصائيات الشهر (CSV)</button><p class="muted">البيانات الخام في شيت «التسجيلات» و«سجل الخصومات والمكافآت».</p>')});
+}
+function exportCsv(){var d=STATE.stats,rows=[['الاسم','التاريخ','النسبة','النقاط','ناجح','مراجَع']];
+  d.kids.forEach(function(k){k.days.forEach(function(x){rows.push([k.display,x.date,Math.round(x.pct*100)+'%',x.total,x.success?'نعم':'لا',x.reviewed?'نعم':'لا'])})});
+  var csv='﻿'+rows.map(function(r){return r.map(function(c){return'"'+String(c).replace(/"/g,'""')+'"'}).join(',')}).join('\n');
+  var a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);a.download='stats-'+d.month+'.csv';document.body.appendChild(a);a.click();a.remove()}
+
+// ---------- family chat
+var CHAT_T=null;
+function chatScreen(){
+  STATE.chatFile='';STATE.chatWho=STATE.chatWho||'بابا';
+  var h=(PT?pTabs('chat'):'')+'<div class="card" style="padding:10px"><div id="msgs" class="msgs"><div class="spin">جاري التحميل...</div></div></div>'+
+    '<div class="card" style="padding:10px">'+(PT?'<div style="margin-bottom:8px">'+seg('cw',['بابا','ماما'],STATE.chatWho)+'</div>':'')+
+    '<div class="flex"><textarea id="ct" rows="2" placeholder="اكتب رسالة..." style="flex:1"></textarea>'+
+    '<button class="btn sm" id="cgo" onclick="chatSend()">إرسال</button></div>'+
+    '<label class="attach" id="catt">📎 صورة أو صوت<input type="file" accept="image/*,audio/*" class="hide" onchange="pickChatFile(this)"></label></div>';
+  view(h,'💬 شات العيلة',PT?pBtns():backBtn('kidHome()'));
+  if(PT)$('cw').addEventListener('click',function(){STATE.chatWho=segVal('cw')});
+  chatLoad(true);CHAT_T=setInterval(function(){if(document.getElementById('msgs'))chatLoad(false);else{clearInterval(CHAT_T);CHAT_T=null}},8000);
+}
+function chatLoad(scroll){
+  call('apiChat',PT||TOKEN).then(function(d){var box=$('msgs');if(!box)return;
+    var atEnd=box.scrollHeight-box.scrollTop-box.clientHeight<40;
+    if(STATE.chatLast===d.msgs.length&&!scroll)return;STATE.chatLast=d.msgs.length;
+    if(!d.msgs.length){box.innerHTML='<div class="muted" style="text-align:center;padding:20px">لسه مفيش رسايل — ابدأ إنت 👋</div>';return}
+    box.innerHTML=d.msgs.map(function(m){var mine=PT?(m.from==='بابا'||m.from==='ماما')&&m.from===STATE.chatWho:m.from===d.me;
+      var face=m.from==='بابا'?'<span class="av" style="width:30px;height:30px;background:#1f4e78">👨</span>':m.from==='ماما'?'<span class="av" style="width:30px;height:30px;background:#be185d">👩</span>':av(m.photo,m.name,30);
+      var tm=new Date(m.t);tm=('0'+tm.getHours()).slice(-2)+':'+('0'+tm.getMinutes()).slice(-2)+' — '+tm.getDate()+'/'+(tm.getMonth()+1);
+      return'<div class="m '+(mine?'me':'')+'">'+face+'<div class="bub"><b>'+esc(m.name)+'</b><div>'+esc(m.text).replace(/\n/g,'<br>')+'</div>'+evBtn(m.file)+'<span class="muted" style="font-size:11px">'+tm+'</span></div></div>'}).join('');
+    if(scroll||atEnd)box.scrollTop=box.scrollHeight}).catch(function(){})}
+function pickChatFile(inp){readFile(inp.files[0],1280,.7).then(function(d){STATE.chatFile=d;$('catt').firstChild.textContent='✅ الملف جاهز '})}
+function chatSend(){var t=$('ct').value;if(!t.trim()&&!STATE.chatFile)return;$('cgo').disabled=true;
+  call('apiChatSend',PT||TOKEN,t,STATE.chatWho,STATE.chatFile).then(function(){$('ct').value='';STATE.chatFile='';
+    $('catt').firstChild.textContent='📎 صورة أو صوت ';$('cgo').disabled=false;chatLoad(true)}).catch(function(){$('cgo').disabled=false})}
+
+boot();
+</script>
+</body>
+</html>

@@ -18,7 +18,7 @@
   header{background:var(--pri);color:#fff;padding:12px 14px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:5}
   header h1{font-size:18px;margin:0;flex:1;display:flex;align-items:center;gap:8px}
   header button{background:rgba(255,255,255,.15);color:#fff;border:0;border-radius:8px;padding:6px 10px;font-size:14px}
-  main{max-width:720px;margin:0 auto;padding:12px}
+  main{max-width:720px;margin:0 auto;padding:12px 12px 90px}
   .card{background:var(--card);border-radius:14px;padding:14px;margin-bottom:12px;box-shadow:0 1px 3px rgba(0,0,0,.06)}
   .card h2{font-size:16px;margin:0 0 10px;color:var(--pri)}
   .row{padding:10px 0;border-bottom:1px solid var(--line)}
@@ -76,12 +76,14 @@
   .m{display:flex;gap:6px;align-items:flex-end}.m.me{flex-direction:row-reverse}
   .bub{background:#f1f5f9;border-radius:14px;padding:8px 10px;max-width:78%;font-size:15px}.m.me .bub{background:#dbeafe}
   .bub b{font-size:12px;color:var(--pri);display:block}
+  .fab{position:fixed;left:16px;bottom:18px;width:56px;height:56px;border-radius:50%;border:0;background:var(--pri);color:#fff;font-size:26px;box-shadow:0 4px 12px rgba(0,0,0,.25);display:none;align-items:center;justify-content:center;z-index:15}
 </style>
 </head>
 <body>
 <header><h1 id="title">فاستبقوا ⭐</h1><span id="hbtns"></span></header>
 <main id="app"><div class="spin">جاري التحميل...</div></main>
 <div class="msg" id="msg"></div>
+<button id="fab" class="fab" onclick="fabChat()" aria-label="شات العيلة">💬</button>
 
 <script>
 var CFG=null, TOKEN=null, ME=null, PT=null, STATE={};
@@ -99,7 +101,10 @@ function $(id){return document.getElementById(id)}
 function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
 function pct(x){return x==null?'—':Math.round(x*100)+'%'}
 function toast(t){var m=$('msg');m.textContent=t;m.style.display='block';clearTimeout(toast.t);toast.t=setTimeout(function(){m.style.display='none'},3000)}
-function view(html,title,btns){$('app').innerHTML=html;$('title').innerHTML=title||'فاستبقوا ⭐';$('hbtns').innerHTML=btns||'';window.scrollTo(0,0)}
+function view(html,title,btns){$('app').innerHTML=html;$('title').innerHTML=title||'فاستبقوا ⭐';$('hbtns').innerHTML=btns||'';window.scrollTo(0,0);
+  var f=$('fab');if(f)f.style.display=(PT||(TOKEN&&ME))&&!$('msgs')?'flex':'none'}
+function itemOpts(i){return i&&i.levels?i.levels.map(function(l){return l.opt}).concat(['لا','لا ينطبق']):['تم','جزئي','لا','لا ينطبق']}
+function fabChat(){PT?parent('chat'):chatScreen()}
 function loading(){$('app').innerHTML='<div class="spin">جاري التحميل...</div>'}
 function color(p){return p==null?'#f1f5f9':p>=.85?'#bbf7d0':p>=.7?'#dcfce7':p>=.5?'#fef3c7':'#fee2e2'}
 function statusBadge(s){if(!s)return'';var c=s==='معتمد'||s==='مفعّل'?'b-ok':s==='معدَّل'?'b-mod':s==='موقوف'?'b-off':'b-pend';return'<span class="badge '+c+'">'+esc(s)+'</span>'}
@@ -178,7 +183,7 @@ function logoutKid(){call('logout',TOKEN);TOKEN=null;ME=null;LS.set('fs_tok',nul
 
 // ---------- kid
 function kidHeader(){return av(ME.photo,ME.display,30)+' '+esc(ME.display)}
-function kidBtns(){return'<button onclick="chatScreen()">💬</button> <button onclick="profileScreen()">⚙️</button> <button onclick="logoutKid()">خروج</button>'}
+function kidBtns(){return'<button onclick="profileScreen()">⚙️</button> <button onclick="logoutKid()">خروج</button>'}
 function kidHome(date,tab){
   STATE={date:date||CFG.today,tab:tab||'day',answers:{},files:{}};
   if(STATE.tab==='month')return kidMonth(monthOf(STATE.date));
@@ -221,7 +226,7 @@ function CATS(){
          {icon:'📱',title:'الموبايل والشاشات',items:[{kind:'شاشات',item:'الشاشات',label:'مدة الشاشات النهارده',opts:CFG.screenOpts,attach:true}]}];
   [['أساسي','📚','الأساسيات'],['عادة','🧹','العادات'],['إضافي','🎈','حاجات بتحبها']].forEach(function(g){
     var its=CFG.items.filter(function(i){return i.type===g[0]});
-    if(its.length)c.push({icon:g[1],title:g[2],items:its.map(function(i){return{kind:'بند',item:i.name,label:i.name,pts:i.full,opts:['تم','جزئي','لا','لا ينطبق']}})})});
+    if(its.length)c.push({icon:g[1],title:g[2],items:its.map(function(i){return{kind:'بند',item:i.name,label:i.name,pts:i.full,opts:itemOpts(i)}})})});
   return c;
 }
 function backBtn(fn){return'<button onclick="'+fn+'">رجوع</button>'}
@@ -241,11 +246,11 @@ function kidItem(i,j){
   h+='<div class="opts">';
   it.opts.forEach(function(o){h+='<button class="opt '+(STATE.item.val===o?'on':'')+'" '+(locked?'disabled':'')+' onclick="pickOpt(this,\''+esc(o)+'\')">'+esc(o)+'</button>'});
   h+='</div>';
-  if(it.sun&&it.sun.length){h+='<h2 style="margin-top:16px">🌙 السنن <span class="muted">(نقاط إضافية)</span></h2>';
+  if(it.sun&&it.sun.length){h+='<h2 style="margin-top:16px">🌙 السنن والأذكار <span class="muted">(نقاط إضافية)</span></h2>';
     it.sun.forEach(function(sn,k){var se=STATE.ent[sn.kind+'|'+sn.item],sl=se&&se.status!=='بانتظار المراجعة',cur=se?se.self:'';
       STATE.item.sun[k]=cur;
       h+='<div class="row"><div class="t"><span>'+esc(sn.label)+' <span class="muted">(+'+sn.pts+')</span></span>'+statusBadge(se&&se.status)+'</div><div class="chips">'+
-        ['صليتها','لا'].map(function(o){return'<button class="chip '+(cur===o?'on':'')+'" '+(sl?'disabled':'')+' onclick="pickSun(this,'+k+',\''+o+'\')">'+o+'</button>'}).join('')+'</div></div>'})}
+        ['صليتها','لا'].map(function(o){return'<button class="chip '+(cur===o?'on':'')+'" '+(sl?'disabled':'')+' onclick="pickSun(this,'+k+',\''+o+'\')">'+(o==='صليتها'?'✅ تم':'لا')+'</button>'}).join('')+'</div></div>'})}
   if(it.attach&&!locked)h+='<label class="attach" id="att">📎 '+(e&&e.file?'تغيير الصورة':'إرفاق سكرين شوت من Family Link / Digital Wellbeing')+'<input type="file" accept="image/*" class="hide" onchange="pickItemFile(this)"></label>';
   if(e&&e.file)h+=' '+evBtn(e.file);
   var sunOpen=(it.sun||[]).some(function(sn){var se=STATE.ent[sn.kind+'|'+sn.item];return!se||se.status==='بانتظار المراجعة'});
@@ -335,7 +340,7 @@ function pReview(){
     Object.keys(groups).forEach(function(g){var it=groups[g];
       h+='<div class="card"><div class="flex between" style="margin-bottom:6px"><h2 style="margin:0">'+esc(it[0].display)+' — '+it[0].date+'</h2>'+
         '<button class="btn sm" onclick="approveGroup(\''+esc(g)+'\')">اعتماد الكل ✅</button></div>';
-      it.forEach(function(x){var opts=x.kind==='صلاة'?CFG.prayerOpts:x.kind==='شاشات'?CFG.screenOpts:x.kind==='سنة'?['صليتها','لا']:['تم','جزئي','لا','لا ينطبق'];
+      it.forEach(function(x){var opts=x.kind==='صلاة'?CFG.prayerOpts:x.kind==='شاشات'?CFG.screenOpts:x.kind==='سنة'?['صليتها','لا']:itemOpts(CFG.items.filter(function(i){return i.name===x.item})[0]);
         h+='<div class="row"><div class="t"><span>'+esc(x.kind==='صلاة'?'صلاة '+x.item:x.kind==='سنة'?'🌙 سنة '+x.item:x.item)+'</span><span class="muted">قال: <b>'+esc(x.self)+'</b></span></div><div class="chips">';
         opts.forEach(function(o){h+='<button class="chip '+(o===x.self?'on':'')+'" onclick="decide(this,\''+x.id+'\',\''+esc(o)+'\')">'+esc(o)+'</button>'});
         h+='</div>'+evBtn(x.file)+'</div>'});

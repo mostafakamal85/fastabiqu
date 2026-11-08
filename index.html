@@ -77,37 +77,54 @@
   .bub{background:#f1f5f9;border-radius:14px;padding:8px 10px;max-width:78%;font-size:15px}.m.me .bub{background:#dbeafe}
   .bub b{font-size:12px;color:var(--pri);display:block}
   .fab{position:fixed;left:16px;bottom:18px;width:56px;height:56px;border-radius:50%;border:0;background:var(--pri);color:#fff;font-size:26px;box-shadow:0 4px 12px rgba(0,0,0,.25);display:none;align-items:center;justify-content:center;z-index:15}
+  .topbar{display:none;align-items:center;justify-content:center;gap:8px;padding:8px 12px;font-size:14px;text-align:center}
+  .topbar.show{display:flex}
+  #upd{background:#fef3c7;color:#92400e;cursor:pointer;font-weight:600}
+  #net{background:#e0e7ff;color:#3730a3}
+  .grp{font-size:15px;color:var(--pri);margin:14px 0 2px;font-weight:700}
+  .note{background:#f1f5f9;border-radius:10px;padding:8px 10px;font-size:13px;color:var(--ink);margin:8px 0}
+  .b-q{background:#e0e7ff;color:#3730a3}
 </style>
 </head>
 <body>
+<div id="upd" class="topbar" onclick="applyUpdate()">🔄 فيه تحديث جديد — اضغط للتحديث</div>
+<div id="net" class="topbar"></div>
 <header><h1 id="title">فاستبقوا ⭐</h1><span id="hbtns"></span></header>
 <main id="app"><div class="spin">جاري التحميل...</div></main>
 <div class="msg" id="msg"></div>
 <button id="fab" class="fab" onclick="fabChat()" aria-label="شات العيلة">💬</button>
 
 <script>
-var CFG=null, TOKEN=null, ME=null, PT=null, STATE={};
-var LS={get:function(k){try{return localStorage.getItem(k)}catch(e){return null}},set:function(k,v){try{v==null?localStorage.removeItem(k):localStorage.setItem(k,v)}catch(e){}}};
+var CFG=null, TOKEN=null, ME=null, PT=null, STATE={}, PINFO={}, SELF=null, HELPER=false, OFF=0, BOOTED=false;
+var DUHA='الضحى - صلاة الضحى', PENDING='بانتظار المراجعة';
+var LS={get:function(k){try{return localStorage.getItem(k)}catch(e){return null}},set:function(k,v){try{v==null?localStorage.removeItem(k):localStorage.setItem(k,v)}catch(e){}},
+  getJ:function(k){try{return JSON.parse(localStorage.getItem(k)||'null')}catch(e){return null}},setJ:function(k,v){try{localStorage.setItem(k,JSON.stringify(v));return true}catch(e){return false}}};
 var API='https://script.google.com/macros/s/AKfycbwdjpC6M7UXuXSzyl81rHU0AkUOKf9Salcixtc2fZbU_jTAour9VlPEckfwDLU3XuXh-Q/exec';
 function onErr(m){
-    if(m.indexOf('SESSION')>-1){ if(PT){PT=null;PINFO={};LS.set('fs_pt',null);toast('انتهت جلسة ولي الأمر');parentLogin()} else {TOKEN=null;ME=null;LS.set('fs_tok',null);toast(m.replace('SESSION: ',''));loginScreen()} }
+    if(m.indexOf('SESSION')>-1){ if(PT){PT=null;PINFO={};HELPER=false;LS.set('fs_pt',null);toast('انتهت جلسة ولي الأمر');parentLogin()} else {TOKEN=null;ME=null;LS.set('fs_tok',null);LS.set('fs_me',null);toast(m.replace('SESSION: ',''));loginScreen()} }
     else toast(m.replace(/^Error: /,''))}
-function call(fn){var args=[].slice.call(arguments,1);
+/** raw request: rejects with {net:true} when offline, {message} when the server says no */
+function api(fn,args){
   return fetch(API,{method:'POST',credentials:'omit',redirect:'follow',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({fn:fn,args:args})})
-    .then(function(r){return r.json()},function(){throw{message:'مفيش اتصال بالإنترنت — جرّب تاني'}})
-    .then(function(j){if(!j.ok)throw{message:j.error};return j.data})
-    .catch(function(e){var m=(e&&e.message)||String(e);if(m.indexOf('Unexpected')>-1)m='السيرفر مش بيرد — جرّب تاني';onErr(m);throw e})}
+    .then(function(r){return r.json()},function(){throw{net:true,message:'مفيش اتصال بالإنترنت — جرّب تاني'}})
+    .then(function(j){if(!j.ok)throw{message:j.error};return j.data},function(e){if(e&&e.net)throw e;throw{net:true,message:'السيرفر مش بيرد — جرّب تاني'}})}
+function call(fn){var args=[].slice.call(arguments,1);
+  return api(fn,args).catch(function(e){onErr((e&&e.message)||String(e));throw e})}
+/** quiet: no toast for network problems (background refresh) */
+function quiet(fn){var args=[].slice.call(arguments,1);
+  return api(fn,args).catch(function(e){if(!e.net)onErr(e.message||String(e));throw e})}
 function $(id){return document.getElementById(id)}
 function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
 function pct(x){return x==null?'—':Math.round(x*100)+'%'}
 function toast(t){var m=$('msg');m.textContent=t;m.style.display='block';clearTimeout(toast.t);toast.t=setTimeout(function(){m.style.display='none'},3000)}
 function view(html,title,btns){$('app').innerHTML=html;$('title').innerHTML=title||'فاستبقوا ⭐';$('hbtns').innerHTML=btns||'';window.scrollTo(0,0);
   var f=$('fab');if(f)f.style.display=(PT||(TOKEN&&ME))&&!$('msgs')?'flex':'none'}
+function show(o){return o==='صليتها'?'✅ تم':/^\d+$/.test(o)?o+' مرة':o}
 function itemOpts(i){return i&&i.levels?i.levels.map(function(l){return l.opt}).concat(['لا','لا ينطبق']):['تم','جزئي','لا','لا ينطبق']}
-function fabChat(){PT?parent('chat'):chatScreen()}
+function fabChat(){PT&&!HELPER?parent('chat'):chatScreen()}
 function loading(){$('app').innerHTML='<div class="spin">جاري التحميل...</div>'}
 function color(p){return p==null?'#f1f5f9':p>=.85?'#bbf7d0':p>=.7?'#dcfce7':p>=.5?'#fef3c7':'#fee2e2'}
-function statusBadge(s){if(!s)return'';var c=s==='معتمد'||s==='مفعّل'?'b-ok':s==='معدَّل'?'b-mod':s==='موقوف'?'b-off':'b-pend';return'<span class="badge '+c+'">'+esc(s)+'</span>'}
+function statusBadge(s,q){if(q)return'<span class="badge b-q">⏳ محفوظ</span>';if(!s)return'';var c=s==='معتمد'||s==='مفعّل'?'b-ok':s==='معدَّل'?'b-mod':s==='موقوف'?'b-off':'b-pend';return'<span class="badge '+c+'">'+esc(s)+'</span>'}
 function av(photo,name,size){size=size||36;if(photo)return'<img class="av" src="'+esc(photo)+'" style="width:'+size+'px;height:'+size+'px">';
   return'<span class="av" style="width:'+size+'px;height:'+size+'px;font-size:'+Math.round(size/2.2)+'px">'+esc((name||'?').trim().charAt(0))+'</span>'}
 function monthOf(d){return d.slice(0,7)}
@@ -117,6 +134,84 @@ function monthName(m){return MONTHS[+m.slice(5,7)-1]+' '+m.slice(0,4)}
 function seg(id,opts,cur){return'<div class="seg" id="'+id+'">'+opts.map(function(o){return'<button type="button" class="chip '+(o===cur?'on':'')+'" onclick="segPick(this)">'+esc(o)+'</button>'}).join('')+'</div>'}
 function segPick(b){[].forEach.call(b.parentNode.children,function(x){x.classList.remove('on')});b.classList.add('on')}
 function segVal(id){var b=$(id)&&$(id).querySelector('.on');return b?b.textContent:''}
+function localToday(){var d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
+function nowS(){return Date.now()+OFF}
+function hm(ms){var d=new Date(ms),h=d.getHours(),m=('0'+d.getMinutes()).slice(-2);return(h%12||12)+':'+m+(h<12?' ص':' م')}
+function dur(ms){var m=Math.max(0,Math.round(ms/60000));return m<60?m+' دقيقة':Math.floor(m/60)+':'+('0'+m%60).slice(-2)+' ساعة'}
+function cityField(id,cur){var opts=(CFG&&CFG.cities)||[];cur=cur||'الرياض';var other=opts.indexOf(cur)<0;
+  return'<select id="'+id+'" onchange="$(\''+id+'x\').classList.toggle(\'hide\',this.value!==\'*\')">'+opts.map(function(o){return'<option'+(o===cur?' selected':'')+'>'+esc(o)+'</option>'}).join('')+
+    '<option value="*"'+(other?' selected':'')+'>مدينة تانية…</option></select><input id="'+id+'x" class="'+(other?'':'hide')+'" style="margin-top:6px" placeholder="اكتب المدينة والدولة بالإنجليزي (مثال: Amman, Jordan)" value="'+(other?esc(cur):'')+'">'}
+function cityVal(id){var v=$(id).value;return v==='*'?$(id+'x').value.trim():v}
+
+// ---------- app update (service worker) + connection bar
+var SWREG=null,SWGO=false;
+function regSW(){if(!('serviceWorker' in navigator))return;
+  navigator.serviceWorker.register('sw.js').then(function(reg){SWREG=reg;
+    function watch(w){if(w)w.addEventListener('statechange',function(){if(w.state==='installed'&&navigator.serviceWorker.controller)$('upd').classList.add('show')})}
+    if(reg.waiting&&navigator.serviceWorker.controller)$('upd').classList.add('show');
+    reg.addEventListener('updatefound',function(){watch(reg.installing)});
+    setInterval(function(){reg.update().catch(function(){})},30*60000)}).catch(function(){});
+  navigator.serviceWorker.addEventListener('controllerchange',function(){if(SWGO){SWGO=false;location.reload()}})}
+function applyUpdate(){SWGO=true;if(SWREG&&SWREG.waiting)SWREG.waiting.postMessage('skip');else location.reload()}
+function netBar(){var n=outbox().length,off=navigator.onLine===false,b=$('net');
+  if(!off&&!n){b.classList.remove('show');return}
+  b.innerHTML=off?'📴 مفيش نت — اللي بتسجله هيتحفظ ويتبعت لوحده'+(n?' ('+n+' مستني)':''):'⏳ جاري إرسال '+n+' تسجيل محفوظ...';b.classList.add('show')}
+window.addEventListener('online',function(){netBar();flush()});window.addEventListener('offline',netBar);
+
+// ---------- outbox (offline submissions)
+function outbox(){return LS.getJ('fs_out')||[]}
+function saveOut(o){if(!LS.setJ('fs_out',o)){o.forEach(function(x){x.list.forEach(function(a){delete a.file})});LS.setJ('fs_out',o)}netBar()}
+var FLUSHING=false;
+function flush(){
+  if(FLUSHING)return;var o=outbox();if(!o.length)return netBar();
+  if(navigator.onLine===false)return netBar();
+  FLUSHING=true;netBar();var job=o[0];
+  api('apiSubmit',[job.tok,job.date,job.list]).then(function(r){
+    var q=outbox().filter(function(x){return x.id!==job.id});saveOut(q);FLUSHING=false;
+    if(r.rejected&&r.rejected.length)toast('⏰ '+r.rejected.length+' تسجيل اتقفل وقته قبل ما يتبعت');
+    else if(job.late)toast('✅ اتبعت');
+    if(r.offline)toast('✅ اتبعت — واتعلّم «اتسجل أوفلاين» لبابا وماما');
+    if(r.data&&SELF===job.tok&&STATE.date===job.date&&!q.some(function(x){return x.tok===job.tok&&x.date===job.date}))setDay(r.data,true);
+    flush()
+  },function(e){FLUSHING=false;
+    if(e&&e.net){o=outbox();if(o[0]&&o[0].id===job.id){o[0].late=1;saveOut(o)}setTimeout(flush,20000);return}
+    saveOut(outbox().filter(function(x){return x.id!==job.id}));
+    if((e.message||'').indexOf('SESSION')>-1)return onErr(e.message);
+    toast('ما اتبعتش: '+String(e.message||'').replace(/^Error: /,''));flush()})}
+setInterval(flush,60000);
+
+// ---------- prayer-time windows (same rules as the server)
+function allowed(kind,item,opts){
+  var T=STATE.data&&STATE.data.times;if(!T||!CFG.rules||!CFG.rules.TIME_RULES)return opts;
+  var t=nowS(),MIN=60000,R=CFG.rules,w=null;
+  if(kind==='صلاة'){var i=CFG.prayers.indexOf(item);if(i<0)return opts;
+    var st=[T.fajr,T.dhuhr,T.asr,T.maghrib,T.isha][i],en=[T.sunrise,T.asr,T.maghrib,T.isha,T.nextFajr][i],P=CFG.prayerOpts;
+    if(t<st)return[];if(t<st+R.MOSQUE_MIN*MIN)return P;if(t<st+R.ONTIME_MIN*MIN)return P.slice(1);if(t<en)return P.slice(2);return[P[P.length-1]]}
+  w=winOf(kind,item,T);if(!w)return opts;
+  return t>=w[0]&&t<w[1]?opts:[]}
+function winOf(kind,item,T){var MIN=60000;
+  if(kind==='سنة')return item===DUHA?[T.sunrise+30*MIN,T.dhuhr-30*MIN]:[0,T.nextFajr];
+  if(kind==='ذكر')return{'أذكار الصباح':[T.fajr,T.sunrise],'أذكار المساء':[T.asr,T.maghrib],'أذكار الاستيقاظ من النوم':[T.fajr,T.dhuhr],'أذكار النوم':[T.isha,T.nextFajr]}[item]||[0,T.nextFajr];
+  return null}
+function windowNote(it){
+  var T=STATE.data&&STATE.data.times;if(!T||!CFG.rules||!CFG.rules.TIME_RULES)return'';
+  var t=nowS(),MIN=60000,R=CFG.rules;
+  if(it.kind==='صلاة'){var i=CFG.prayers.indexOf(it.item),st=[T.fajr,T.dhuhr,T.asr,T.maghrib,T.isha][i],en=[T.sunrise,T.asr,T.maghrib,T.isha,T.nextFajr][i];
+    if(t<st)return'⏰ الأذان الساعة '+hm(st)+' — تقدر تسجّل بعده';
+    if(t<st+R.MOSQUE_MIN*MIN)return'🕌 «مسجد» متاح لحد '+hm(st+R.MOSQUE_MIN*MIN);
+    if(t<st+R.ONTIME_MIN*MIN)return'⏳ «في وقتها» متاح لحد '+hm(st+R.ONTIME_MIN*MIN);
+    if(t<en)return'⌛ عدّى وقت «في وقتها» — الوقت بيخلص '+hm(en);
+    return'❌ وقت الصلاة خلص (فائتة)'}
+  var w=winOf(it.kind,it.item,T);if(!w)return'';
+  if(t<w[0])return'⏰ يفتح الساعة '+hm(w[0]);
+  if(t>=w[1])return'⌛ الوقت خلص';
+  return w[0]?'🕐 متاح لحد '+hm(w[1]):''}
+function nextPrayer(){
+  var T=STATE.data&&STATE.data.times;if(!T||STATE.date!==CFG.today)return'';
+  var L=[['الفجر',T.fajr],['الظهر',T.dhuhr],['العصر',T.asr],['المغرب',T.maghrib],['العشاء',T.isha],['الفجر',T.nextFajr]],t=nowS();
+  for(var i=0;i<L.length;i++)if(L[i][1]>t)return'⏰ الصلاة الجاية: <b>'+L[i][0]+'</b> بعد '+dur(L[i][1]-t)+' ('+hm(L[i][1])+')';
+  return''}
+setInterval(function(){var e=$('npl');if(e)e.innerHTML=nextPrayer()},20000);
 
 // ---------- files
 function readFile(file,maxDim,quality){return new Promise(function(res,rej){
@@ -144,12 +239,28 @@ function evBtn(id){return id?'<button class="btn sm sec" style="margin-top:6px" 
 
 // ---------- start / auth
 function boot(){
-  call('apiConfig').then(function(c){CFG=c;TOKEN=LS.get('fs_tok');
-    var sp=LS.get('fs_pt');if(sp){try{PINFO=JSON.parse(sp);PT=PINFO.token;return parent('review')}catch(e){LS.set('fs_pt',null)}}
-    if(!TOKEN)return loginScreen();
-    call('apiMe',TOKEN).then(function(me){ME=me;kidHome()})});
+  regSW();netBar();
+  CFG=LS.getJ('fs_cfg');TOKEN=LS.get('fs_tok');ME=LS.getJ('fs_me');SELF=TOKEN;
+  var sp=LS.getJ('fs_pt');if(sp&&sp.token){PINFO=sp;PT=sp.token}
+  if(CFG){CFG.today=localToday();
+    var cd=LS.getJ('fs_day');
+    if(PT){}                                              // parent screens need the network
+    else if(TOKEN&&ME&&cd&&cd.u===ME.user&&cd.date===CFG.today){STATE={date:CFG.today,tab:'day'};setDay(cd.data,false);renderKid();BOOTED=true}
+    else if(!TOKEN){loginScreen();BOOTED=true}
+  }
+  quiet('apiBoot',PT||TOKEN||'',CFG?CFG.today:localToday()).then(function(b){
+    CFG=b.cfg;OFF=b.cfg.now-Date.now();LS.setJ('fs_cfg',CFG);
+    if(b.parent){PINFO=Object.assign(PINFO,b.parent,{token:PT});LS.setJ('fs_pt',PINFO);if(!BOOTED)parent('review')}
+    else if(b.me){ME=b.me;LS.setJ('fs_me',ME);SELF=TOKEN;
+      if(!BOOTED){STATE={date:CFG.today,tab:'day'};setDay(b.day,false);renderKid()}
+      else if(STATE.date===b.day.date&&!outbox().length)setDay(b.day,true)}
+    else if(!BOOTED)loginScreen();
+    BOOTED=true;flush()
+  },function(e){
+    if(BOOTED||!e.net)return;
+    view('<div class="card" style="text-align:center"><h2>📴 مفيش إنترنت</h2><p>أول مرة التطبيق محتاج نت عشان يحمّل البيانات.</p><button class="btn" onclick="location.reload()">جرّب تاني</button></div>')})
 }
-function loginScreen(){PT=null;
+function loginScreen(){PT=null;HELPER=false;
   view('<div class="card"><h2>تسجيل الدخول</h2>'+
     '<label class="l">رقم الموبايل أو الإيميل</label><input id="lu" autocomplete="username" inputmode="email">'+
     '<label class="l">كلمة السر</label><input id="lp" type="password" autocomplete="current-password">'+
@@ -158,13 +269,14 @@ function loginScreen(){PT=null;
     '<div class="card"><button class="btn sec" onclick="parentLogin()">ولي الأمر 🔒</button></div>');
 }
 function doKidLogin(){var u=$('lu').value,p=$('lp').value;if(!u||!p)return toast('اكتب البيانات');loading();
-  call('apiLogin',u,p).then(function(r){TOKEN=r.token;ME=r.me;LS.set('fs_tok',TOKEN);kidHome()}).catch(loginScreen)}
+  call('apiLogin',u,p).then(function(r){TOKEN=r.token;SELF=TOKEN;ME=r.me;LS.set('fs_tok',TOKEN);LS.setJ('fs_me',ME);kidHome()}).catch(loginScreen)}
 function registerScreen(){STATE.regPhoto='';
   view('<div class="card"><h2>حساب جديد</h2>'+
     '<div style="text-align:center"><span id="rph">'+av('', '?', 90)+'</span><br><label class="attach">📷 اختار صورتك<input type="file" accept="image/*" class="hide" onchange="pickRegPhoto(this)"></label></div>'+
     '<label class="l">اسمك اللي هيظهر</label><input id="rd">'+
     '<label class="l">أنا</label>'+seg('rs',['ولد','بنت'],'')+
     '<label class="l">سنة الميلاد</label><input id="rb" type="number" inputmode="numeric" placeholder="مثال: 2014">'+
+    '<label class="l">مكان الإقامة (عشان مواعيد الصلاة)</label>'+cityField('rc','الرياض')+
     '<label class="l">رقم الموبايل أو الإيميل (ده اللي هتدخل بيه)</label><input id="ru" inputmode="email" autocomplete="username">'+
     '<label class="l">كلمة السر</label><input id="rp" type="password" autocomplete="new-password">'+
     '<label class="l">أكّد كلمة السر</label><input id="rp2" type="password" autocomplete="new-password">'+
@@ -175,25 +287,39 @@ function pickRegPhoto(inp){squareAvatar(inp.files[0]).then(function(d){STATE.reg
 function doRegister(){
   if($('rp').value!==$('rp2').value)return toast('كلمتين السر مش زي بعض');
   var sex=segVal('rs');if(!sex)return toast('اختار ولد أو بنت');
-  var a=[$('ru').value,$('rp').value,$('rd').value,sex,$('rb').value,STATE.regPhoto];loading();
-  call('apiRegister',a[0],a[1],a[2],a[3],a[4],a[5]).then(function(){
+  var city=cityVal('rc');if(!city)return toast('اكتب المدينة');
+  var a=[$('ru').value,$('rp').value,$('rd').value,sex,$('rb').value,STATE.regPhoto,city];loading();
+  call('apiRegister',a[0],a[1],a[2],a[3],a[4],a[5],a[6]).then(function(){
     view('<div class="card" style="text-align:center"><h2>تم إنشاء الحساب 🎉</h2><p>بابا أو ماما لازم يوافقوا على الحساب الأول، وبعدها تقدر تدخل.</p>'+
       '<button class="btn" onclick="loginScreen()">رجوع لتسجيل الدخول</button></div>')}).catch(registerScreen)}
-function logoutKid(){call('logout',TOKEN);TOKEN=null;ME=null;LS.set('fs_tok',null);loginScreen()}
+function logoutKid(){if(outbox().length&&!confirm('فيه تسجيلات لسه ما اتبعتتش — لو خرجت هتضيع. تخرج؟'))return;
+  call('logout',TOKEN).catch(function(){});TOKEN=null;ME=null;SELF=null;LS.set('fs_tok',null);LS.set('fs_me',null);LS.set('fs_day',null);LS.set('fs_out',null);netBar();loginScreen()}
 
-// ---------- kid
+// ---------- kid (also the helper's own page)
 function kidHeader(){return av(ME.photo,ME.display,30)+' '+esc(ME.display)}
-function kidBtns(){return'<button onclick="profileScreen()">⚙️</button> <button onclick="logoutKid()">خروج</button>'}
+function kidBtns(){return HELPER?'<button onclick="selfSettings()">⚙️</button> <button onclick="parent(\'review\')">🔒 رجوع</button>':'<button onclick="profileScreen()">⚙️</button> <button onclick="logoutKid()">خروج</button>'}
+function setDay(d,rerender){
+  STATE.data=d;OFF=d.now?d.now-Date.now():OFF;
+  var ent={};d.entries.forEach(function(e){ent[e.kind+'|'+e.item]=e});
+  outbox().forEach(function(j){if(j.tok===SELF&&j.date===d.date)j.list.forEach(function(a){var e=ent[a.kind+'|'+a.item];
+    if(!e||e.status===PENDING)ent[a.kind+'|'+a.item]={kind:a.kind,item:a.item,self:a.value,status:PENDING,parent:'',file:e?e.file:'',q:1}})});
+  STATE.ent=ent;
+  if(ME&&d.date===CFG.today)LS.setJ('fs_day',{u:ME.user,date:d.date,data:d});
+  if(rerender){if(STATE.screen==='home')renderKid();else if(STATE.screen==='cat')kidCat(STATE.cat)}
+}
 function kidHome(date,tab){
   STATE={date:date||CFG.today,tab:tab||'day',answers:{},files:{}};
   if(STATE.tab==='month')return kidMonth(monthOf(STATE.date));
+  var cd=LS.getJ('fs_day');
+  if(cd&&ME&&cd.u===ME.user&&cd.date===STATE.date){setDay(cd.data,false);renderKid();
+    return quiet('apiKidDay',SELF,STATE.date).then(function(d){if(STATE.date===d.date)setDay(d,true)},function(){})}
   loading();
-  call('apiKidDay',TOKEN,STATE.date).then(function(d){STATE.data=d;renderKid()});
+  call('apiKidDay',SELF,STATE.date).then(function(d){setDay(d,false);renderKid()});
 }
 function kidTabs(){return'<div class="tabs"><button class="tab '+(STATE.tab==='day'?'on':'')+'" onclick="kidHome(STATE.date,\'day\')">تسجيل اليوم</button>'+
   '<button class="tab '+(STATE.tab==='month'?'on':'')+'" onclick="kidHome(STATE.date,\'month\')">درجاتي في الشهر</button></div>'}
 function renderKid(){
-  var d=STATE.data,ent={};d.entries.forEach(function(e){ent[e.kind+'|'+e.item]=e});STATE.ent=ent;
+  STATE.screen='home';var d=STATE.data,ent=STATE.ent;
   var h=kidTabs(),day=d.day;
   h+='<div class="card"><input type="date" value="'+STATE.date+'" max="'+CFG.today+'" onchange="kidHome(this.value)">';
   if(day){
@@ -203,14 +329,16 @@ function renderKid(){
     if(day.manual)h+='<div class="muted" style="text-align:center;color:'+(day.manual>0?'var(--ok)':'var(--bad)')+'">نقاط من بابا/ماما: '+(day.manual>0?'+':'')+day.manual+'</div>';
     if(day.honesty)h+='<div class="muted" style="text-align:center;color:var(--ok)">مكافأة الصدق: +'+day.honesty+'</div>';
     if(day.sunnah)h+='<div class="muted" style="text-align:center;color:var(--ok)">🌙 نقاط السنن: +'+day.sunnah+'</div>';
+    if(day.azkar)h+='<div class="muted" style="text-align:center;color:var(--ok)">📿 نقاط الأذكار: +'+day.azkar+'</div>';
   } else h+='<div class="muted" style="text-align:center;margin-top:10px">لسه ما سجّلتش اليوم ده</div>';
+  var np=nextPrayer();h+='<div class="note" id="npl" style="text-align:center'+(np?'':';display:none')+'">'+np+'</div>';
   var s=d.summary;
   h+='<div class="kpis" style="margin-top:10px"><div class="kpi"><b>'+pct(s.week)+'</b><span>متوسط الأسبوع</span></div>'+
      '<div class="kpi"><b>'+(s.improve==null?'—':(s.improve>=0?'▲ ':'▼ ')+Math.abs(Math.round(s.improve*100))+'%')+'</b><span>عن الأسبوع اللي فات</span></div>'+
      '<div class="kpi"><b>'+s.streak+' 🔥</b><span>أيام ناجحة ورا بعض</span></div></div></div>';
   h+='<div class="cats">';
   CATS().forEach(function(c,i){
-    var done=0,ok=0,wait=0;c.items.forEach(function(it){var e=ent[it.kind+'|'+it.item];if(e){done++;if(e.status==='بانتظار المراجعة')wait++;else ok++}});
+    var done=0,wait=0;c.items.forEach(function(it){var e=ent[it.kind+'|'+it.item];if(e){done++;if(e.status===PENDING)wait++}});
     var full=done===c.items.length;
     h+='<button class="cat" onclick="kidCat('+i+')"><span class="ic">'+c.icon+'</span><b>'+c.title+'</b>'+
       '<span class="muted">'+done+' من '+c.items.length+(full?' ✅':'')+'</span>'+
@@ -221,41 +349,55 @@ function renderKid(){
   view(h,kidHeader(),kidBtns());
 }
 function CATS(){
-  var c=[{icon:'🕌',title:'الصلاة',items:CFG.prayers.map(function(p){return{kind:'صلاة',item:p,label:'صلاة '+p,opts:CFG.prayerOpts,
-           sun:(CFG.sunnah||[]).filter(function(s){return s.prayer===p}).map(function(s){return{kind:'سنة',item:p+' - '+s.name,label:s.name,pts:s.pts}})}})},
-         {icon:'📱',title:'الموبايل والشاشات',items:[{kind:'شاشات',item:'الشاشات',label:'مدة الشاشات النهارده',opts:CFG.screenOpts,attach:true}]}];
+  var pr={icon:'🕌',title:'الصلاة والأذكار',items:[]};
+  CFG.prayers.forEach(function(p){pr.items.push({grp:'🕌 الصلاة',kind:'صلاة',item:p,label:'صلاة '+p,opts:CFG.prayerOpts,
+    sun:(CFG.sunnah||[]).filter(function(s){return s.prayer===p}).map(function(s){return{kind:'سنة',item:p+' - '+s.name,label:s.name,pts:s.pts}})})});
+  var du=(CFG.sunnah||[]).filter(function(s){return s.prayer+' - '+s.name===DUHA})[0];
+  if(du)pr.items.push({grp:'🕌 الصلاة',kind:'سنة',item:DUHA,label:'🌞 صلاة الضحى',opts:['صليتها','لا'],bonus:du.pts});
+  (CFG.azkar||[]).forEach(function(z){pr.items.push({grp:'📿 الأذكار',kind:'ذكر',item:z.name,label:z.name,opts:z.levels.map(function(l){return l.opt}),
+    bonus:Math.max.apply(null,z.levels.map(function(l){return l.pts}).concat([0]))})});
+  var c=[pr];
+  if(!ME.adult)c.push({icon:'📱',title:'الموبايل والشاشات',items:[{kind:'شاشات',item:'الشاشات',label:'مدة الشاشات النهارده',opts:CFG.screenOpts,attach:true}]});
+  var list=ME.adult?(CFG.aitems||[]):CFG.items;
   [['أساسي','📚','الأساسيات'],['عادة','🧹','العادات'],['إضافي','🎈','حاجات بتحبها']].forEach(function(g){
-    var its=CFG.items.filter(function(i){return i.type===g[0]});
+    var its=list.filter(function(i){return i.type===g[0]});
     if(its.length)c.push({icon:g[1],title:g[2],items:its.map(function(i){return{kind:'بند',item:i.name,label:i.name,pts:i.full,opts:itemOpts(i)}})})});
   return c;
 }
 function backBtn(fn){return'<button onclick="'+fn+'">رجوع</button>'}
 function kidCat(i){
-  STATE.cat=i;var c=CATS()[i],h='<div class="card"><h2>'+c.icon+' '+c.title+'</h2>';
+  STATE.cat=i;STATE.screen='cat';var c=CATS()[i],h='<div class="card"><h2>'+c.icon+' '+c.title+'</h2>',g='';
+  if(i===0){var np=nextPrayer();h+='<div class="note" id="npl" style="'+(np?'':'display:none')+'">'+np+'</div>'}
   c.items.forEach(function(it,j){var e=STATE.ent[it.kind+'|'+it.item];
-    h+='<button class="itemrow" onclick="kidItem('+i+','+j+')"><span><b>'+esc(it.label)+'</b>'+(it.pts?' <span class="muted">('+it.pts+')</span>':'')+
-      '<br><span class="muted">'+(e?'قلت: '+esc(e.self)+(e.status==='معدَّل'?' ← اتعدّلت إلى: '+esc(e.parent):''):'لسه ما سجّلتش')+'</span>'+sunLine(it)+'</span>'+
-      (e?statusBadge(e.status):'<span class="go">‹</span>')+'</button>'});
+    if(it.grp&&it.grp!==g){g=it.grp;h+='<div class="grp">'+g+(g.indexOf('الأذكار')>-1?' <span class="muted">(نقاط إضافية)</span>':'')+'</div>'}
+    var wn=!e?windowNote(it):'';
+    h+='<button class="itemrow" onclick="kidItem('+i+','+j+')"><span><b>'+esc(it.label)+'</b>'+(it.pts?' <span class="muted">('+it.pts+')</span>':it.bonus?' <span class="muted">(+'+it.bonus+')</span>':'')+
+      '<br><span class="muted">'+(e?'قلت: '+esc(show(e.self))+(e.status==='معدَّل'?' ← اتعدّلت إلى: '+esc(show(e.parent)):''):(wn||'لسه ما سجّلتش'))+'</span>'+sunLine(it)+'</span>'+
+      (e?statusBadge(e.status,e.q):'<span class="go">‹</span>')+'</button>'});
   view(h+'</div><div class="muted" style="text-align:center">'+esc(STATE.date)+'</div>',kidHeader(),backBtn('renderKid()'));
 }
 function kidItem(i,j){
-  var it=CATS()[i].items[j],key=it.kind+'|'+it.item,e=STATE.ent[key],locked=e&&e.status!=='بانتظار المراجعة';
+  STATE.screen='item';
+  var it=CATS()[i].items[j],key=it.kind+'|'+it.item,e=STATE.ent[key],locked=e&&e.status!==PENDING;
   STATE.item={i:i,j:j,it:it,val:e?e.self:'',file:'',sun:{}};
+  var ok=allowed(it.kind,it.item,it.opts),wn=windowNote(it);
   var h='<div class="card"><h2>'+esc(it.label)+'</h2>';
-  if(e)h+='<div style="margin-bottom:10px">'+statusBadge(e.status)+(e.status==='معدَّل'?' <span class="muted">اتعدّلت إلى: <b>'+esc(e.parent)+'</b></span>':'')+'</div>';
+  if(e)h+='<div style="margin-bottom:10px">'+statusBadge(e.status,e.q)+(e.q?' <span class="muted">هيتبعت لما النت يرجع</span>':'')+(e.status==='معدَّل'?' <span class="muted">اتعدّلت إلى: <b>'+esc(show(e.parent))+'</b></span>':'')+'</div>';
+  if(wn&&!locked)h+='<div class="note">'+wn+'</div>';
   h+='<div class="opts">';
-  it.opts.forEach(function(o){h+='<button class="opt '+(STATE.item.val===o?'on':'')+'" '+(locked?'disabled':'')+' onclick="pickOpt(this,\''+esc(o)+'\')">'+esc(o)+'</button>'});
+  it.opts.forEach(function(o){var dis=locked||ok.indexOf(o)<0;h+='<button class="opt '+(STATE.item.val===o?'on':'')+'" '+(dis?'disabled':'')+' onclick="pickOpt(this,\''+esc(o)+'\')">'+esc(show(o))+'</button>'});
   h+='</div>';
-  if(it.sun&&it.sun.length){h+='<h2 style="margin-top:16px">🌙 السنن والأذكار <span class="muted">(نقاط إضافية)</span></h2>';
-    it.sun.forEach(function(sn,k){var se=STATE.ent[sn.kind+'|'+sn.item],sl=se&&se.status!=='بانتظار المراجعة',cur=se?se.self:'';
+  var sunOpen=false;
+  if(it.sun&&it.sun.length){h+='<h2 style="margin-top:16px">🌙 السنن <span class="muted">(نقاط إضافية)</span></h2>';
+    it.sun.forEach(function(sn,k){var se=STATE.ent[sn.kind+'|'+sn.item],sl=se&&se.status!==PENDING,cur=se?se.self:'',so=allowed(sn.kind,sn.item,['صليتها','لا']).length>0;
+      if(!sl&&so)sunOpen=true;
       STATE.item.sun[k]=cur;
-      h+='<div class="row"><div class="t"><span>'+esc(sn.label)+' <span class="muted">(+'+sn.pts+')</span></span>'+statusBadge(se&&se.status)+'</div><div class="chips">'+
-        ['صليتها','لا'].map(function(o){return'<button class="chip '+(cur===o?'on':'')+'" '+(sl?'disabled':'')+' onclick="pickSun(this,'+k+',\''+o+'\')">'+(o==='صليتها'?'✅ تم':'لا')+'</button>'}).join('')+'</div></div>'})}
+      h+='<div class="row"><div class="t"><span>'+esc(sn.label)+' <span class="muted">(+'+sn.pts+')</span></span>'+statusBadge(se&&se.status,se&&se.q)+'</div><div class="chips">'+
+        ['صليتها','لا'].map(function(o){return'<button class="chip '+(cur===o?'on':'')+'" '+(sl||!so?'disabled':'')+' onclick="pickSun(this,'+k+',\''+o+'\')">'+show(o)+'</button>'}).join('')+'</div></div>'})}
   if(it.attach&&!locked)h+='<label class="attach" id="att">📎 '+(e&&e.file?'تغيير الصورة':'إرفاق سكرين شوت من Family Link / Digital Wellbeing')+'<input type="file" accept="image/*" class="hide" onchange="pickItemFile(this)"></label>';
   if(e&&e.file)h+=' '+evBtn(e.file);
-  var sunOpen=(it.sun||[]).some(function(sn){var se=STATE.ent[sn.kind+'|'+sn.item];return!se||se.status==='بانتظار المراجعة'});
   if(locked)h+='<p class="muted">البند ده اتراجع خلاص ومينفعش يتغيّر.</p>';
-  if(!locked||sunOpen)h+='<div style="height:14px"></div><button class="btn" id="sendBtn" onclick="sendItem()">إرسال ✉️</button>';
+  if((!locked&&ok.length)||sunOpen)h+='<div style="height:14px"></div><button class="btn" id="sendBtn" onclick="sendItem()">إرسال ✉️</button>';
   view(h+'</div>',kidHeader(),backBtn('kidCat('+i+')'));
 }
 function sunLine(it){if(!it.sun||!it.sun.length)return'';var n=0;it.sun.forEach(function(sn){var e=STATE.ent[sn.kind+'|'+sn.item];if(e&&e.self==='صليتها')n++});
@@ -264,28 +406,27 @@ function pickSun(b,k,v){STATE.item.sun[k]=v;[].forEach.call(b.parentNode.childre
 function pickOpt(b,v){STATE.item.val=v;[].forEach.call(b.parentNode.children,function(x){x.classList.remove('on')});b.classList.add('on')}
 function pickItemFile(inp){readFile(inp.files[0],1280,.7).then(function(d){STATE.item.file=d;$('att').firstChild.textContent='✅ الصورة جاهزة '})}
 function sendItem(){
-  var s=STATE.item,list=[];
+  var s=STATE.item,list=[],at=nowS();
   var me=STATE.ent[s.it.kind+'|'+s.it.item];
-  if(s.val&&!(me&&me.status!=='بانتظار المراجعة'))list.push({kind:s.it.kind,item:s.it.item,value:s.val,file:s.file});
-  (s.it.sun||[]).forEach(function(sn,k){var se=STATE.ent[sn.kind+'|'+sn.item];if(s.sun[k]&&!(se&&se.status!=='بانتظار المراجعة'))list.push({kind:sn.kind,item:sn.item,value:s.sun[k]})});
-  if(!list.length)return toast('اختار تقييمك الأول');
-  $('sendBtn').disabled=true;$('sendBtn').textContent='جاري الإرسال...';
-  call('apiSubmit',TOKEN,STATE.date,list).then(function(r){
-    toast(r.locked?'البند ده اتراجع خلاص':'اتبعت ✅');
-    return call('apiKidDay',TOKEN,STATE.date)}).then(function(d){STATE.data=d;
-    var ent={};d.entries.forEach(function(e){ent[e.kind+'|'+e.item]=e});STATE.ent=ent;
-    var c=CATS()[s.i],next=-1;
-    for(var k=s.j+1;k<c.items.length;k++)if(!ent[c.items[k].kind+'|'+c.items[k].item]){next=k;break}
-    next>-1?kidItem(s.i,next):kidCat(s.i)})
-  .catch(function(){if($('sendBtn')){$('sendBtn').disabled=false;$('sendBtn').textContent='إرسال ✉️'}});
+  if(s.val&&!(me&&me.status!==PENDING)&&(!me||me.self!==s.val||s.file))list.push({kind:s.it.kind,item:s.it.item,value:s.val,file:s.file,at:at});
+  (s.it.sun||[]).forEach(function(sn,k){var se=STATE.ent[sn.kind+'|'+sn.item];if(s.sun[k]&&!(se&&se.status!==PENDING)&&(!se||se.self!==s.sun[k]))list.push({kind:sn.kind,item:sn.item,value:s.sun[k],at:at})});
+  if(!list.length){if(s.val||me)return goNext(s);return toast('اختار تقييمك الأول')}
+  // optimistic: show it as saved right away, send in the background
+  list.forEach(function(a){var old=STATE.ent[a.kind+'|'+a.item];STATE.ent[a.kind+'|'+a.item]={kind:a.kind,item:a.item,self:a.value,status:PENDING,parent:'',file:old?old.file:'',q:1}});
+  var o=outbox();o.push({id:Date.now()+'-'+Math.random().toString(36).slice(2,6),tok:SELF,date:STATE.date,list:list});saveOut(o);
+  toast(navigator.onLine===false?'⏳ محفوظ — هيتبعت لما النت يرجع':'اتبعت ✅');
+  flush();goNext(s);
 }
+function goNext(s){var c=CATS()[s.i],next=-1;
+  for(var k=s.j+1;k<c.items.length;k++){var it=c.items[k];if(!STATE.ent[it.kind+'|'+it.item]&&allowed(it.kind,it.item,it.opts).length){next=k;break}}
+  next>-1?kidItem(s.i,next):kidCat(s.i)}
 function kidPens(){var h='<div class="card"><h2>👨‍👩‍👧 من بابا وماما</h2>';
   STATE.data.pens.forEach(function(p){h+='<div class="row">'+(p.type==='نقاط'?(p.count>0?'🌟 +':'🔻 ')+p.count+' — '+esc(p.behavior):'⚠️ '+esc(p.behavior)+' × '+p.count+(p.repaired?' — اعتذرت/أصلحت ✅':''))+
     (p.who?' <span class="muted">('+esc(p.who)+')</span>':'')+'<br>'+evBtn(p.file)+'</div>'});
   view(h+'</div>',kidHeader(),backBtn('renderKid()'))}
 function kidMonth(m){
-  STATE.tab='month';loading();
-  call('apiMonth',TOKEN,m).then(function(d){
+  STATE.tab='month';STATE.screen='month';loading();
+  call('apiMonth',SELF,m).then(function(d){
     var h=kidTabs()+'<div class="card"><div class="flex between"><button class="btn sm sec" onclick="kidMonth(\''+shiftMonth(m,-1)+'\')">→ السابق</button><b>'+monthName(m)+'</b>'+
       '<button class="btn sm sec" onclick="kidMonth(\''+shiftMonth(m,1)+'\')">التالي ←</button></div>'+
       '<div class="kpis" style="margin-top:10px"><div class="kpi"><b>'+pct(d.avg)+'</b><span>متوسط الشهر</span></div>'+
@@ -303,17 +444,33 @@ function calendar(m,days,click){
       (x?(x.reviewed?pct(x.pct)+(x.success?'⭐':''):'⏳'):'')+'</div>'}
   return h+'</div>';
 }
-function profileScreen(){STATE.newPhoto=null;
+function profileScreen(){STATE.newPhoto=null;STATE.screen='profile';
   view('<div class="card"><h2>بروفايلي</h2><div style="text-align:center"><span id="pph">'+av(ME.photo,ME.display,96)+'</span><br>'+
     '<label class="attach">📷 تغيير الصورة<input type="file" accept="image/*" class="hide" onchange="pickProfPhoto(this)"></label></div>'+
     '<label class="l">اسمي اللي بيظهر</label><input id="pd" value="'+esc(ME.display)+'">'+
+    '<label class="l">مكان الإقامة (عشان مواعيد الصلاة)</label>'+cityField('pc',ME.city)+
     '<label class="l">تغيير كلمة السر (اختياري) — القديمة</label><input id="po" type="password">'+
     '<label class="l">الجديدة</label><input id="pn" type="password">'+
     '<div style="height:12px"></div><button class="btn" onclick="saveProfile()">حفظ</button>'+
     '<div style="height:8px"></div><button class="btn sec" onclick="kidHome()">رجوع</button></div>',kidHeader(),'');
 }
 function pickProfPhoto(inp){squareAvatar(inp.files[0]).then(function(d){STATE.newPhoto=d;$('pph').innerHTML=av(d,'',96)})}
-function saveProfile(){call('apiUpdateProfile',TOKEN,$('pd').value,STATE.newPhoto,$('po').value,$('pn').value).then(function(me){ME=me;toast('اتحفظ ✅');kidHome()})}
+function saveProfile(){call('apiUpdateProfile',TOKEN,$('pd').value,STATE.newPhoto,$('po').value,$('pn').value,cityVal('pc')).then(function(me){ME=me;LS.setJ('fs_me',ME);LS.set('fs_day',null);toast('اتحفظ ✅');kidHome()})}
+
+// ---------- helper's own page
+function pSelf(){
+  if(!PINFO.page)return selfSettings();
+  HELPER=true;SELF=PT;ME={user:'h:'+PINFO.name,display:PINFO.name,sex:PINFO.sex,city:PINFO.city,photo:'',adult:true};
+  kidHome();
+}
+function selfSettings(){HELPER=false;
+  pv(pTabs('self')+'<div class="card"><h2>🙋 صفحتي</h2><p class="muted">صفحة تقيّم فيها نفسك يوميًا (الصلاة والسنن والأذكار وبنود الكبار). بابا هو اللي بيعتمدها، ومش بتظهر في إحصائيات الأولاد.</p>'+
+    '<label class="l">أنا</label>'+seg('hs',['ولد','بنت'],PINFO.sex==='بنت'?'بنت':PINFO.sex?'ولد':'')+
+    '<label class="l">مكان الإقامة (عشان مواعيد الصلاة)</label>'+cityField('hc',PINFO.city)+
+    '<div style="height:12px"></div><button class="btn" onclick="saveSelf(true)">'+(PINFO.page?'حفظ وفتح صفحتي':'تفعيل صفحتي ✅')+'</button>'+
+    (PINFO.page?'<div style="height:8px"></div><button class="btn red" onclick="saveSelf(false)">إيقاف صفحتي</button>':'')+'</div>')}
+function saveSelf(on){var sex=segVal('hs');if(on&&!sex)return toast('اختار ولد أو بنت');
+  call('apiHelperSelf',PT,on,sex||PINFO.sex,cityVal('hc')).then(function(r){PINFO=Object.assign(PINFO,r);LS.setJ('fs_pt',PINFO);LS.set('fs_day',null);toast('اتحفظ ✅');on?pSelf():parent('review')})}
 
 // ---------- parent
 function parentLogin(){
@@ -322,15 +479,23 @@ function parentLogin(){
     '<div style="height:8px"></div><button class="btn sec" onclick="TOKEN?kidHome():loginScreen()">رجوع</button></div>','ولي الأمر 🔒');
   setTimeout(function(){$('pin')&&$('pin').focus()},50);
 }
-var PINFO={};
-function doLogin(){call('apiParentLogin',$('pin').value).then(function(r){PT=r.token;PINFO=r;LS.set('fs_pt',JSON.stringify(r));parent('review')})}
-function logoutParent(){call('logout',PT).catch(function(){});PT=null;PINFO={};LS.set('fs_pt',null);TOKEN?kidHome():loginScreen()}
+function doLogin(){call('apiParentLogin',$('pin').value).then(function(r){PT=r.token;PINFO=r;LS.setJ('fs_pt',r);parent('review')})}
+function logoutParent(){call('logout',PT).catch(function(){});PT=null;PINFO={};HELPER=false;LS.set('fs_pt',null);
+  ME=LS.getJ('fs_me');SELF=TOKEN;TOKEN&&ME?kidHome():loginScreen()}
 function pBtns(){return'<button onclick="logoutParent()">خروج</button>'}
 function pTabs(t){var T={review:'المراجعة',log:'خصم / مكافأة',acc:'الحسابات',dash:'الملخص',stats:'الإحصائيات',chat:'💬 الشات'};
+  if(!PINFO.main)T.self='🙋 صفحتي';
   return'<div class="tabs">'+Object.keys(T).map(function(k){return'<button class="tab '+(t===k?'on':'')+'" onclick="parent(\''+k+'\')">'+T[k]+(k==='acc'&&STATE.waiting?' ('+STATE.waiting+')':'')+'</button>'}).join('')+'</div>'}
-function parent(t){loading();({review:pReview,log:pLog,acc:pAcc,dash:pDash,chat:chatScreen,stats:function(){pStats(monthOf(CFG.today))}})[t]()}
+function parent(t){
+  if(HELPER){HELPER=false;ME=LS.getJ('fs_me');SELF=TOKEN}
+  STATE.screen='parent';loading();({review:pReview,log:pLog,acc:pAcc,dash:pDash,chat:chatScreen,self:pSelf,stats:function(){pStats(monthOf(CFG.today))}})[t]()}
 function pv(h){view(h,'🔒 '+esc(PINFO.name||'ولي الأمر'),pBtns())}
 
+function reviewOpts(x){
+  if(x.kind==='صلاة')return CFG.prayerOpts;if(x.kind==='شاشات')return CFG.screenOpts;if(x.kind==='سنة')return['صليتها','لا'];
+  if(x.kind==='ذكر'){var z=(CFG.azkar||[]).filter(function(a){return a.name===x.item})[0];return z?z.levels.map(function(l){return l.opt}):['تم','جزئي','لا']}
+  return itemOpts((x.adult?CFG.aitems||[]:CFG.items).filter(function(i){return i.name===x.item})[0])}
+function reviewLabel(x){return x.kind==='صلاة'?'صلاة '+x.item:x.item===DUHA?'🌞 صلاة الضحى':x.kind==='سنة'?'🌙 سنة '+x.item:x.kind==='ذكر'?'📿 '+x.item:x.item}
 function pReview(){
   call('apiPending',PT).then(function(list){
     STATE.pending=list;STATE.dec={};
@@ -338,14 +503,14 @@ function pReview(){
     if(!list.length)return pv(h+'<div class="card"><h2>مفيش حاجة مستنية مراجعة 👌</h2></div>');
     var groups={};list.forEach(function(x){(groups[x.kid+'|'+x.date]=groups[x.kid+'|'+x.date]||[]).push(x)});
     Object.keys(groups).forEach(function(g){var it=groups[g];
-      h+='<div class="card"><div class="flex between" style="margin-bottom:6px"><h2 style="margin:0">'+esc(it[0].display)+' — '+it[0].date+'</h2>'+
+      h+='<div class="card"><div class="flex between" style="margin-bottom:6px"><h2 style="margin:0">'+(it[0].adult?'🙋 ':'')+esc(it[0].display)+' — '+it[0].date+'</h2>'+
         '<button class="btn sm" onclick="approveGroup(\''+esc(g)+'\')">اعتماد الكل ✅</button></div>';
-      it.forEach(function(x){var opts=x.kind==='صلاة'?CFG.prayerOpts:x.kind==='شاشات'?CFG.screenOpts:x.kind==='سنة'?['صليتها','لا']:itemOpts(CFG.items.filter(function(i){return i.name===x.item})[0]);
-        h+='<div class="row"><div class="t"><span>'+esc(x.kind==='صلاة'?'صلاة '+x.item:x.kind==='سنة'?'🌙 سنة '+x.item:x.item)+'</span><span class="muted">قال: <b>'+esc(x.self)+'</b></span></div><div class="chips">';
-        opts.forEach(function(o){h+='<button class="chip '+(o===x.self?'on':'')+'" onclick="decide(this,\''+x.id+'\',\''+esc(o)+'\')">'+esc(o)+'</button>'});
+      it.forEach(function(x){var opts=reviewOpts(x);
+        h+='<div class="row"><div class="t"><span>'+esc(reviewLabel(x))+(x.note?' <span class="badge b-q">📴 '+esc(x.note)+'</span>':'')+'</span><span class="muted">قال: <b>'+esc(show(x.self))+'</b></span></div><div class="chips">';
+        opts.forEach(function(o){h+='<button class="chip '+(o===x.self?'on':'')+'" onclick="decide(this,\''+x.id+'\',\''+esc(o)+'\')">'+esc(show(o))+'</button>'});
         h+='</div>'+evBtn(x.file)+'</div>'});
       h+='</div>'});
-    pv(h+'<p class="muted">اختار تقييم مختلف لو عايز تعدّل، وبعدين «اعتماد الكل». التعديل بيلغي مكافأة الصدق لليوم ده.</p>');
+    pv(h+'<p class="muted">اختار تقييم مختلف لو عايز تعدّل، وبعدين «اعتماد الكل». التعديل بيلغي مكافأة الصدق لليوم ده. «اتسجل أوفلاين» = اتسجل وقت ما كان مفيش نت واتبعت بعد ما الوقت قفل.</p>');
   });
 }
 function decide(btn,id,val){STATE.dec[id]=val;[].forEach.call(btn.parentNode.children,function(b){b.classList.remove('on')});btn.classList.add('on')}
@@ -393,14 +558,14 @@ function pAcc(){
     list.sort(function(a,b){return(a.status==='بانتظار الموافقة'?0:1)-(b.status==='بانتظار الموافقة'?0:1)});
     list.forEach(function(a,i){
       h+='<div class="card"><div class="flex">'+av(a.photo,a.display,52)+'<div style="flex:1"><b>'+esc(a.display)+'</b> '+statusBadge(a.status)+
-        '<div class="muted">'+esc(a.user)+' — '+esc(a.sex)+(a.birth?' — مواليد '+a.birth:' — سنة الميلاد ناقصة')+'</div></div></div>'+
+        '<div class="muted">'+esc(a.user)+' — '+esc(a.sex)+(a.birth?' — مواليد '+a.birth:' — سنة الميلاد ناقصة')+' — 📍 '+esc(a.city)+'</div></div></div>'+
         (!PINFO.main?'':'<div class="flex" style="margin-top:10px;flex-wrap:wrap">'+
         (a.status!=='مفعّل'?'<button class="btn sm" onclick="setAcc('+i+',{status:\'مفعّل\'})">موافقة ✅</button>':'<button class="btn sm red" onclick="setAcc('+i+',{status:\'موقوف\'})">إيقاف</button>')+
         '<button class="btn sm sec" onclick="editAcc('+i+')">تعديل</button></div><div id="ed'+i+'"></div>')+'</div>'});
     if(!PINFO.main)return pv(h);
     call('apiHelpers',PT).then(function(hs){STATE.helpers=hs;
-      h+='<div class="card"><h2>👥 أولياء أمور مساعدين</h2><p class="muted">المساعد يقدر يراجع ويعتمد، ويسجّل خصم ومكافأة، ويستخدم الشات ويشوف الإحصائيات. ما يقدرش يوافق على حسابات أو يعدّلها أو يضيف مساعدين.</p>';
-      hs.forEach(function(x,i){h+='<div class="row flex between"><span><b>'+esc(x.name)+'</b> '+statusBadge(x.status)+'</span><span class="flex">'+
+      h+='<div class="card"><h2>👥 أولياء أمور مساعدين</h2><p class="muted">المساعد يقدر يراجع ويعتمد، ويسجّل خصم ومكافأة، ويستخدم الشات ويشوف الإحصائيات. ما يقدرش يوافق على حسابات أو يعدّلها أو يضيف مساعدين. وكمان يقدر يفعّل «صفحتي» يقيّم فيها نفسه، وإنت بس اللي بتعتمدها.</p>';
+      hs.forEach(function(x,i){h+='<div class="row flex between"><span><b>'+esc(x.name)+'</b> '+statusBadge(x.status)+(x.page?' <span class="badge b-q">🙋 صفحته مفعّلة</span>':'')+'</span><span class="flex">'+
         (x.status==='مفعّل'?'<button class="btn sm red" onclick="setHelper('+i+',\'موقوف\')">إيقاف</button>':'<button class="btn sm" onclick="setHelper('+i+',\'مفعّل\')">تفعيل</button>')+
         '<button class="btn sm sec" onclick="helperPw('+i+')">كلمة سر جديدة</button></span></div>'});
       h+='<label class="l">اسم المساعد (مثال: ماما، تيتة)</label><input id="hn"><label class="l">كلمة السر بتاعته (6 حروف على الأقل)</label><input id="hp" type="text">'+
@@ -416,8 +581,9 @@ function editAcc(i){var a=STATE.accs[i];
   $('ed'+i).innerHTML='<label class="l">الاسم الظاهر</label><input id="ea'+i+'" value="'+esc(a.display)+'">'+
     '<label class="l">النوع</label>'+seg('es'+i,['ولد','بنت'],a.sex)+
     '<label class="l">سنة الميلاد</label><input id="eb'+i+'" type="number" value="'+esc(a.birth||'')+'">'+
+    '<label class="l">مكان الإقامة</label>'+cityField('ec'+i,a.city)+
     '<label class="l">كلمة سر جديدة (لو نسيها)</label><input id="ep'+i+'" type="text" placeholder="سيبها فاضية لو مش عايز تغيّرها">'+
-    '<div style="height:10px"></div><button class="btn" onclick="setAcc('+i+',{display:$(\'ea'+i+'\').value,sex:segVal(\'es'+i+'\'),birth:$(\'eb'+i+'\').value,password:$(\'ep'+i+'\').value})">حفظ</button>'}
+    '<div style="height:10px"></div><button class="btn" onclick="setAcc('+i+',{display:$(\'ea'+i+'\').value,sex:segVal(\'es'+i+'\'),birth:$(\'eb'+i+'\').value,city:cityVal(\'ec'+i+'\'),password:$(\'ep'+i+'\').value})">حفظ</button>'}
 
 function pDash(){
   call('apiDashboard',PT).then(function(d){STATE.waiting=d.waiting;
@@ -433,9 +599,9 @@ function pStats(m){
   call('apiStats',PT,m).then(function(d){STATE.stats=d;
     var h=pTabs('stats')+'<div class="card"><div class="flex between"><button class="btn sm sec" onclick="pStats(\''+shiftMonth(m,-1)+'\')">→ السابق</button><b>'+monthName(m)+'</b>'+
       '<button class="btn sm sec" onclick="pStats(\''+shiftMonth(m,1)+'\')">التالي ←</button></div></div>';
-    h+='<div class="card"><h2>مقارنة سريعة</h2><table><tr><th>الاسم</th><th>أيام</th><th>المتوسط</th><th>الأساسيات</th><th>ناجح</th><th>الصدق</th><th>🌙 سنن</th><th>مكافآت</th><th>النقاط</th></tr>';
-    d.kids.forEach(function(k){h+='<tr><td><b>'+esc(k.display)+'</b></td><td>'+k.reviewedDays+'</td><td>'+pct(k.avg)+'</td><td>'+pct(k.ess)+'</td><td>'+k.success+'</td><td>'+pct(k.honesty)+'</td><td>'+k.sunnah+'</td><td>+'+k.plus+(k.minus?' / '+k.minus:'')+'</td><td>'+Math.round(k.points)+'</td></tr>'});
-    h+='</table><p class="muted">الصدق = نسبة البنود اللي اتعتمدت زي ما الطفل قيّمها بالظبط.</p></div>';
+    h+='<div class="card"><h2>مقارنة سريعة</h2><div style="overflow-x:auto"><table><tr><th>الاسم</th><th>أيام</th><th>المتوسط</th><th>الأساسيات</th><th>ناجح</th><th>الصدق</th><th>🌙 سنن</th><th>📿 أذكار</th><th>مكافآت</th><th>النقاط</th></tr>';
+    d.kids.forEach(function(k){h+='<tr><td><b>'+esc(k.display)+'</b></td><td>'+k.reviewedDays+'</td><td>'+pct(k.avg)+'</td><td>'+pct(k.ess)+'</td><td>'+k.success+'</td><td>'+pct(k.honesty)+'</td><td>'+k.sunnah+'</td><td>'+k.azkar+'</td><td>+'+k.plus+(k.minus?' / '+k.minus:'')+'</td><td>'+Math.round(k.points)+'</td></tr>'});
+    h+='</table></div><p class="muted">الصدق = نسبة البنود اللي اتعتمدت زي ما الطفل قيّمها بالظبط.</p></div>';
     d.kids.forEach(function(k){
       h+='<div class="card"><div class="flex" style="margin-bottom:8px">'+av(k.photo,k.display,40)+'<h2 style="margin:0">'+esc(k.display)+'</h2></div>'+calendar(m,k.days,false);
       var items=k.items.filter(function(i){return i.rate!=null}).sort(function(a,b){return a.rate-b.rate});
@@ -458,29 +624,33 @@ function exportCsv(){var d=STATE.stats,rows=[['الاسم','التاريخ','ا�
 // ---------- family chat
 var CHAT_T=null;
 function chatScreen(){
-  STATE.chatFile='';STATE.chatWho=STATE.chatWho||'بابا';
-  var h=(PT?pTabs('chat'):'')+'<div class="card" style="padding:10px"><div id="msgs" class="msgs"><div class="spin">جاري التحميل...</div></div></div>'+
+  STATE.chatFile='';STATE.chatWho=STATE.chatWho||'بابا';STATE.chatLast=-1;STATE.screen='chat';
+  var h=(PT&&!HELPER?pTabs('chat'):'')+'<div class="card" style="padding:10px"><div id="msgs" class="msgs"><div class="spin">جاري التحميل...</div></div></div>'+
     '<div class="card" style="padding:10px">'+(PT&&PINFO.main?'<div style="margin-bottom:8px">'+seg('cw',['بابا','ماما'],STATE.chatWho)+'</div>':'')+
     '<div class="flex"><textarea id="ct" rows="2" placeholder="اكتب رسالة..." style="flex:1"></textarea>'+
     '<button class="btn sm" id="cgo" onclick="chatSend()">إرسال</button></div>'+
     '<label class="attach" id="catt">📎 صورة أو صوت<input type="file" accept="image/*,audio/*" class="hide" onchange="pickChatFile(this)"></label></div>';
-  view(h,'💬 شات العيلة',PT?pBtns():backBtn('kidHome()'));
+  view(h,'💬 شات العيلة',PT&&!HELPER?pBtns():backBtn('kidHome()'));
   if(PT&&PINFO.main)$('cw').addEventListener('click',function(){STATE.chatWho=segVal('cw')});
+  if(CHAT_T)clearInterval(CHAT_T);
   chatLoad(true);CHAT_T=setInterval(function(){if(document.getElementById('msgs'))chatLoad(false);else{clearInterval(CHAT_T);CHAT_T=null}},8000);
 }
+var CHAT_PH=null;
 function chatLoad(scroll){
-  call('apiChat',PT||TOKEN).then(function(d){var box=$('msgs');if(!box)return;
+  var tok=PT||TOKEN;
+  (scroll?call:quiet)('apiChat',tok,!CHAT_PH).then(function(d){if(d.photos)CHAT_PH=d.photos;var box=$('msgs');if(!box)return;
     var atEnd=box.scrollHeight-box.scrollTop-box.clientHeight<40;
     if(STATE.chatLast===d.msgs.length&&!scroll)return;STATE.chatLast=d.msgs.length;
     if(!d.msgs.length){box.innerHTML='<div class="muted" style="text-align:center;padding:20px">لسه مفيش رسايل — ابدأ إنت 👋</div>';return}
-    box.innerHTML=d.msgs.map(function(m){var mine=PT?m.from===(PINFO.main?STATE.chatWho:PINFO.name):m.from===d.me;
-      var face=m.from==='بابا'?'<span class="av" style="width:30px;height:30px;background:#1f4e78">👨</span>':m.from==='ماما'?'<span class="av" style="width:30px;height:30px;background:#be185d">👩</span>':av(m.photo,m.name,30);
+    box.innerHTML=d.msgs.map(function(m){var mine=PT&&PINFO.main?m.from===STATE.chatWho:m.from===d.me;
+      var face=m.from==='بابا'?'<span class="av" style="width:30px;height:30px;background:#1f4e78">👨</span>':m.from==='ماما'?'<span class="av" style="width:30px;height:30px;background:#be185d">👩</span>':av((CHAT_PH||{})[m.from],m.name,30);
       var tm=new Date(m.t);tm=('0'+tm.getHours()).slice(-2)+':'+('0'+tm.getMinutes()).slice(-2)+' — '+tm.getDate()+'/'+(tm.getMonth()+1);
       return'<div class="m '+(mine?'me':'')+'">'+face+'<div class="bub"><b>'+esc(m.name)+'</b><div>'+esc(m.text).replace(/\n/g,'<br>')+'</div>'+evBtn(m.file)+'<span class="muted" style="font-size:11px">'+tm+'</span></div></div>'}).join('');
     if(scroll||atEnd)box.scrollTop=box.scrollHeight}).catch(function(){})}
 function pickChatFile(inp){readFile(inp.files[0],1280,.7).then(function(d){STATE.chatFile=d;$('catt').firstChild.textContent='✅ الملف جاهز '})}
 function chatSend(){var t=$('ct').value;if(!t.trim()&&!STATE.chatFile)return;$('cgo').disabled=true;
-  call('apiChatSend',PT||TOKEN,t,STATE.chatWho,STATE.chatFile).then(function(){$('ct').value='';STATE.chatFile='';
+  var tok=PT||TOKEN;
+  call('apiChatSend',tok,t,STATE.chatWho,STATE.chatFile).then(function(){$('ct').value='';STATE.chatFile='';
     $('catt').firstChild.textContent='📎 صورة أو صوت ';$('cgo').disabled=false;chatLoad(true)}).catch(function(){$('cgo').disabled=false})}
 
 boot();

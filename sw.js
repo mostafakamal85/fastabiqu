@@ -1,5 +1,5 @@
 // فاستبقوا — offline app shell. Bump V on every release so phones get the update banner.
-var V='fs-2026-11-08a';
+var V='fs-2026-11-09a';
 var SHELL=['./','index.html','manifest.json','icon-192.png','icon-512.png'];
 self.addEventListener('install',function(e){e.waitUntil(caches.open(V).then(function(c){return c.addAll(SHELL)}))});
 self.addEventListener('activate',function(e){e.waitUntil(caches.keys().then(function(ks){return Promise.all(ks.filter(function(k){return k!==V}).map(function(k){return caches.delete(k)}))}).then(function(){return self.clients.claim()}))});

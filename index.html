@@ -88,6 +88,10 @@
   .cnt{position:absolute;top:-4px;right:-4px;background:#dc2626;color:#fff;border-radius:999px;font-size:12px;font-weight:700;min-width:20px;height:20px;line-height:20px;padding:0 5px;text-align:center}
   .cnt.in{position:static;display:inline-block;font-size:11px;min-width:18px;height:18px;line-height:18px}
   .fab{position:fixed}
+  .msgbox{position:fixed;left:12px;right:12px;bottom:84px;max-width:560px;margin:0 auto;background:#fff;border-radius:16px;box-shadow:0 8px 30px rgba(0,0,0,.25);padding:14px 16px;z-index:40;border-top:4px solid var(--ok);animation:up .25s ease}
+  .msgbox .mt{font-size:13px;color:var(--mute);margin-bottom:4px}.msgbox .mx{font-size:18px;font-weight:700}
+  .msgbox .mh{font-size:14px;color:#334155;background:#f8fafc;border-radius:10px;padding:8px;margin-top:8px;line-height:1.7}
+  @keyframes up{from{transform:translateY(20px);opacity:0}to{transform:none;opacity:1}}
 </style>
 </head>
 <body>
@@ -221,6 +225,61 @@ function nextPrayer(){
   return''}
 setInterval(function(){var e=$('npl');if(e)e.innerHTML=nextPrayer()},20000);
 
+// ---------- response messages (sheet «الرسايل»)
+var NEG_VALS=['لا','لا ينطبق','لم يصلِّ'];
+function myAge(){if(!ME||ME.adult||!ME.birth)return 99;return +CFG.today.slice(0,4)-ME.birth}
+function msgUses(){return LS.getJ('fs_mu_'+(ME&&ME.user))||{}}
+function pickMsg(kind,item,value,stage){
+  var L=(CFG&&CFG.msgs)||[];if(!L.length||!ME)return null;
+  var age=myAge(),sex=ME.sex||'ولد',week=Date.now()-7*864e5,uses=msgUses(),best=[],bestScore=0;
+  L.forEach(function(m,i){
+    if(m.kind!==kind)return;
+    if(m.item!=='*'&&m.item!==item)return;
+    if(m.vals==='*'){if(NEG_VALS.indexOf(value)>-1)return}else if(m.vals.indexOf(String(value))<0)return;
+    if(m.age==='تحت 10'&&age>=10)return;if(m.age==='10 وفوق'&&age<10)return;
+    if(m.sex!=='الكل'&&m.sex!==sex)return;
+    if(m.stage!=='الاتنين'&&m.stage!==stage)return;
+    var key=m.kind+'|'+m.item+'|'+m.text;
+    if(m.week&&(uses[key]||[]).filter(function(t){return t>week}).length>=m.week)return;
+    var sc=(m.item!=='*'?2:1)+(m.vals!=='*'?1:0);
+    if(sc>bestScore){bestScore=sc;best=[]}if(sc===bestScore)best.push(m)});
+  if(!best.length)return null;
+  var m=best[Math.floor(Math.random()*best.length)],k=m.kind+'|'+m.item+'|'+m.text;
+  uses[k]=(uses[k]||[]).filter(function(t){return t>week}).concat([Date.now()]);LS.setJ('fs_mu_'+ME.user,uses);
+  return m}
+var MSGQ=[],MSGT=null;
+function showMsg(m,title){if(!m)return;MSGQ.push({m:m,title:title||''});if(MSGQ.length===1)nextMsg()}
+function nextMsg(){var b=$('msgbox');if(!MSGQ.length){if(b)b.remove();return}
+  var x=MSGQ[0];if(!b){b=document.createElement('div');b.id='msgbox';b.className='msgbox';b.onclick=closeMsg;document.body.appendChild(b)}
+  b.innerHTML=(x.title?'<div class="mt">'+esc(x.title)+'</div>':'')+'<div class="mx">'+esc(x.m.text)+'</div>'+(x.m.hadith?'<div class="mh">'+esc(x.m.hadith)+'</div>':'')+
+    (MSGQ.length>1?'<div class="muted" style="font-size:11px;margin-top:4px">اضغط للي بعدها ('+(MSGQ.length-1)+')</div>':'');
+  clearTimeout(MSGT);MSGT=setTimeout(closeMsg,x.m.hadith?9000:5000)}
+function closeMsg(){MSGQ.shift();nextMsg()}
+var R12_NAMES=null;
+function r12(){if(!R12_NAMES)R12_NAMES=(CFG.sunnah||[]).filter(function(s){return['الفجر','الظهر','المغرب','العشاء'].indexOf(s.prayer)>-1&&s.name!=='الوتر'}).map(function(s){return s.prayer+' - '+s.name});
+  return R12_NAMES.length&&R12_NAMES.every(function(k){var e=STATE.ent['سنة|'+k];return e&&(e.status==='معدَّل'?e.parent:e.self)==='صليتها'})}
+/** after fresh data: messages for things the parent approved/changed since last time */
+function approvalMsgs(d){
+  if(!ME||!d||!d.entries)return;var key='fs_seen_'+ME.user,seen=LS.getJ(key),first=!seen;seen=seen||{};
+  var news=[];
+  d.entries.forEach(function(e){if(!e.id||isOpen(e.status)||seen['e'+e.id])return;seen['e'+e.id]=1;news.push(e)});
+  (d.pens||[]).forEach(function(p){var k='p'+p.id+(p.repaired?'r':'');if(seen[k])return;seen[k]=1;if(p.type!=='هدية')news.push({pen:p})});
+  var day=d.day;if(day&&day.honesty&&!seen['h'+d.date]){seen['h'+d.date]=1;news.push({honest:1})}
+  var st=d.summary&&d.summary.streak||0;if(st>=3&&!seen['s'+d.date+'_'+st]){seen['s'+d.date+'_'+st]=1;news.push({streak:st})}
+  var y=new Date(CFG.today+'T12:00:00Z');y.setUTCDate(y.getUTCDate()-1);var old=d.date<y.toISOString().slice(0,10);
+  LS.setJ(key,seen);if(first||old||!news.length)return;
+  var shown=0;news.forEach(function(n){if(shown>=4)return;var m=null,t='';
+    if(n.pen){var p=n.pen;if(p.type==='نقاط'){m={text:(p.count>0?'🌟 ':'🔻 ')+(p.count>0?'+':'')+p.count+' — '+p.behavior,hadith:''};t='من '+(p.who||'بابا')}
+      else{m=pickMsg('خصم',p.repaired?'*':p.behavior,p.repaired?'اعتذر':'*','اعتماد')||pickMsg('خصم','*',p.repaired?'اعتذر':'x','اعتماد');t='⚠️ '+p.behavior+(p.repaired?' — اعتذرت ✅':'')}}
+    else if(n.honest){m=pickMsg('يوم','صدق','*','اعتماد');t='⭐ +'+day.honesty}
+    else if(n.streak){m=pickMsg('يوم','ستريك','*','اعتماد');t='🔥 '+n.streak+' أيام ناجحة ورا بعض'}
+    else{var e=n,v=e.status==='معدَّل'?e.parent:e.self;
+      if(e.flag==='صلّح بعد السؤال'){m=pickMsg('يوم','صلّح','*','اعتماد');t='✅ بابا اعتمد: '+itemLabel(e.kind,e.item)}
+      else{m=pickMsg(e.kind,e.item,v,'اعتماد');t=(e.status==='معدَّل'?'✏️ بابا عدّل «'+itemLabel(e.kind,e.item)+'» لـ '+show(v):'✅ بابا اعتمد: '+itemLabel(e.kind,e.item))}
+      if(!m&&e.status==='معدَّل')m={text:'بابا عدّل التقييم ده — راجعه 🤍',hadith:''}}
+    if(m){showMsg(m,t);shown++}});
+  if(news.length>shown&&shown)showMsg({text:'وفيه '+(news.length-shown)+' حاجة تانية اتراجعت 👀',hadith:''},'')}
+
 // ---------- red badges (unread chat, waiting reviews, questions)
 function badgeTok(){return PT||TOKEN}
 function chatKey(){return'fs_cs_'+(PT?'p_'+(PINFO.name||''):(ME?ME.user:''))}
@@ -266,7 +325,7 @@ function boot(){
   if(CFG){CFG.today=localToday();
     var cd=LS.getJ('fs_day');
     if(PT){}                                              // parent screens need the network
-    else if(TOKEN&&ME&&cd&&cd.u===ME.user&&cd.date===CFG.today){STATE={date:CFG.today,tab:'day'};setDay(cd.data,false);renderKid();BOOTED=true}
+    else if(TOKEN&&ME&&cd&&cd.u===ME.user&&cd.date===CFG.today){STATE={date:CFG.today,tab:'day'};setDay(cd.data,false,true);renderKid();BOOTED=true}
     else if(!TOKEN){loginScreen();BOOTED=true}
   }
   quiet('apiBoot',PT||TOKEN||'',CFG?CFG.today:localToday(),(PT||TOKEN)?chatSince():0).then(function(b){
@@ -319,8 +378,8 @@ function logoutKid(){if(outbox().length&&!confirm('فيه تسجيلات لسه 
 // ---------- kid (also the helper's own page)
 function kidHeader(){return av(ME.photo,ME.display,30)+' '+esc(ME.display)}
 function kidBtns(){return HELPER?'<button onclick="selfSettings()">⚙️</button> <button onclick="parent(\'review\')">🔒 رجوع</button>':'<button onclick="profileScreen()">⚙️</button> <button onclick="logoutKid()">خروج</button>'}
-function setDay(d,rerender){
-  STATE.data=d;OFF=d.now?d.now-Date.now():OFF;
+function setDay(d,rerender,fromCache){
+  STATE.data=d;if(!fromCache&&!HELPER)approvalMsgs(d);OFF=d.now?d.now-Date.now():OFF;
   var ent={};d.entries.forEach(function(e){ent[e.kind+'|'+e.item]=e});
   outbox().forEach(function(j){if(j.tok===SELF&&j.date===d.date)j.list.forEach(function(a){var e=ent[a.kind+'|'+a.item];
     if(!e||isOpen(e.status))ent[a.kind+'|'+a.item]={id:e?e.id:'',kind:a.kind,item:a.item,self:a.value,status:PENDING,parent:'',file:e?e.file:'',cmts:e?e.cmts:[],q:1}})});
@@ -336,7 +395,7 @@ function kidHome(date,tab,openKey){
   STATE={date:date||CFG.today,tab:tab||'day',answers:{},files:{},openKey:openKey||null};
   if(STATE.tab==='month')return kidMonth(monthOf(STATE.date));
   var cd=LS.getJ('fs_day');
-  if(cd&&ME&&cd.u===ME.user&&cd.date===STATE.date){setDay(cd.data,false);renderKid();
+  if(cd&&ME&&cd.u===ME.user&&cd.date===STATE.date){setDay(cd.data,false,true);renderKid();
     return quiet('apiKidDay',SELF,STATE.date).then(function(d){if(STATE.date===d.date)setDay(d,true)},function(){})}
   loading();
   call('apiKidDay',SELF,STATE.date).then(function(d){setDay(d,false);renderKid()});
@@ -407,7 +466,7 @@ function kidCat(i){
   view(h+'</div><div class="muted" style="text-align:center">'+esc(STATE.date)+'</div>',kidHeader(),backBtn('renderKid()'));
 }
 function kidItem(i,j){
-  STATE.screen='item';
+  STATE.screen='item';STATE.had12=STATE.ent&&r12();
   var it=CATS()[i].items[j],key=it.kind+'|'+it.item,e=STATE.ent[key],locked=e&&!isOpen(e.status);
   STATE.item={i:i,j:j,it:it,val:e?e.self:'',file:'',sun:{}};
   var ok=allowed(it.kind,it.item,it.opts),wn=windowNote(it);
@@ -453,7 +512,11 @@ function sendItem(){
   list.forEach(function(a){var old=STATE.ent[a.kind+'|'+a.item];STATE.ent[a.kind+'|'+a.item]={id:old?old.id:'',kind:a.kind,item:a.item,self:a.value,status:PENDING,parent:'',file:old?old.file:'',cmts:old?old.cmts:[],q:1};
     if(old&&old.status===QST&&STATE.data.asked)STATE.data.asked=STATE.data.asked.filter(function(x){return!(x.date===STATE.date&&x.kind===a.kind&&x.item===a.item)})});
   var o=outbox();o.push({id:Date.now()+'-'+Math.random().toString(36).slice(2,6),tok:SELF,date:STATE.date,list:list});saveOut(o);
-  toast(navigator.onLine===false?'⏳ محفوظ — هيتبعت لما النت يرجع':'اتبعت ✅');
+  var main=list[0],had12=!!STATE.had12;
+  if(!HELPER){var mm=pickMsg(main.kind,main.item,main.value,'تسجيل');
+    showMsg(mm||{text:navigator.onLine===false?'⏳ محفوظ — هيتبعت لما النت يرجع':'اتبعت ✅',hadith:''},mm?(navigator.onLine===false?'⏳ محفوظ — هيتبعت لما النت يرجع':'اتبعت ✅'):'');
+    if(!had12&&r12()){STATE.had12=1;showMsg(pickMsg('يوم','12 ركعة','*','تسجيل'),'')}}
+  else toast(navigator.onLine===false?'⏳ محفوظ — هيتبعت لما النت يرجع':'اتبعت ✅');
   flush();goNext(s);
 }
 function goNext(s){var c=CATS()[s.i],next=-1;
@@ -471,7 +534,7 @@ function giftScreen(){STATE.screen='gift';var d=STATE.data,h='<div class="card">
     '<div style="height:12px"></div><button class="btn" id="ggo" onclick="sendGift()">ابعت النقطة 🎁</button>'}
   view(h+'</div>',kidHeader(),backBtn('renderKid()'))}
 function sendGift(){var r=$('grs').value.trim();if(!r)return toast('اكتب السبب');$('ggo').disabled=true;
-  call('apiGift',TOKEN,$('gto').value,r).then(function(d){setDay(d,false);toast('🎁 اتبعتت — مستنية موافقة بابا');renderKid()}).catch(function(){var b=$('ggo');if(b)b.disabled=false})}
+  call('apiGift',TOKEN,$('gto').value,r).then(function(d){setDay(d,false);showMsg(pickMsg('هدية','أدّى','*','تسجيل')||{text:'🎁',hadith:''},'🎁 اتبعتت — مستنية موافقة بابا');renderKid()}).catch(function(){var b=$('ggo');if(b)b.disabled=false})}
 function kidMonth(m){
   STATE.tab='month';STATE.screen='month';loading();
   call('apiMonth',SELF,m).then(function(d){

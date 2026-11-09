@@ -103,7 +103,7 @@
 <button id="fab" class="fab" onclick="fabChat()" aria-label="شات العيلة">💬</button>
 
 <script>
-var CFG=null, TOKEN=null, ME=null, PT=null, STATE={}, PINFO={}, SELF=null, HELPER=false, OFF=0, BOOTED=false;
+var CFG=null, TOKEN=null, ME=null, PT=null, STATE={}, PINFO={}, SELF=null, HELPER=false, TESTM=false, OFF=0, BOOTED=false;
 var DUHA='الضحى - صلاة الضحى', PENDING='بانتظار المراجعة', QST='سؤال من ولي الأمر';
 function isOpen(st){return st===PENDING||st===QST}
 var BADGE={chat:0,pending:0,waiting:0,asked:0};
@@ -377,9 +377,9 @@ function logoutKid(){if(outbox().length&&!confirm('فيه تسجيلات لسه 
 
 // ---------- kid (also the helper's own page)
 function kidHeader(){return av(ME.photo,ME.display,30)+' '+esc(ME.display)}
-function kidBtns(){return HELPER?'<button onclick="selfSettings()">⚙️</button> <button onclick="parent(\'review\')">🔒 رجوع</button>':'<button onclick="profileScreen()">⚙️</button> <button onclick="logoutKid()">خروج</button>'}
+function kidBtns(){if(TESTM)return'<button onclick="parent(\'test\')">🔒 رجوع لولي الأمر</button>';return HELPER?'<button onclick="selfSettings()">⚙️</button> <button onclick="parent(\'review\')">🔒 رجوع</button>':'<button onclick="profileScreen()">⚙️</button> <button onclick="logoutKid()">خروج</button>'}
 function setDay(d,rerender,fromCache){
-  STATE.data=d;if(!fromCache&&!HELPER)approvalMsgs(d);OFF=d.now?d.now-Date.now():OFF;
+  STATE.data=d;if(!fromCache&&(!HELPER||TESTM))approvalMsgs(d);OFF=d.now?d.now-Date.now():OFF;
   var ent={};d.entries.forEach(function(e){ent[e.kind+'|'+e.item]=e});
   outbox().forEach(function(j){if(j.tok===SELF&&j.date===d.date)j.list.forEach(function(a){var e=ent[a.kind+'|'+a.item];
     if(!e||isOpen(e.status))ent[a.kind+'|'+a.item]={id:e?e.id:'',kind:a.kind,item:a.item,self:a.value,status:PENDING,parent:'',file:e?e.file:'',cmts:e?e.cmts:[],q:1}})});
@@ -405,6 +405,7 @@ function kidTabs(){return'<div class="tabs"><button class="tab '+(STATE.tab==='d
 function renderKid(){
   STATE.screen='home';var d=STATE.data,ent=STATE.ent;
   var h=kidTabs(),day=d.day;
+  if(TESTM)h='<div class="note" style="background:#fef3c7">🧪 <b>وضع التجربة</b> — شايف التطبيق زي ما الطفل شايفه. اللي بتسجله هنا مش بيدخل في أي إحصائيات، وبيتمسح لوحده بعد 15 دقيقة. وتقدر تعتمده من «المراجعة» عشان تشوف رسايل الاعتماد.</div>'+h;
   if(d.asked&&d.asked.length){h+='<div class="card" style="border:2px solid #f59e0b"><h2>❓ بابا سألك على '+d.asked.length+' بند</h2>';
     d.asked.forEach(function(a){h+='<button class="itemrow" onclick="openEntry(\''+a.date+'\',\''+esc(a.kind)+'\',\''+esc(a.item)+'\')"><span><b>'+esc(itemLabel(a.kind,a.item))+'</b><br><span class="muted">'+a.date+'</span></span><span class="go">‹</span></button>'});h+='</div>'}
   h+='<div class="card"><input type="date" value="'+STATE.date+'" max="'+CFG.today+'" onchange="kidHome(this.value)">';
@@ -513,7 +514,7 @@ function sendItem(){
     if(old&&old.status===QST&&STATE.data.asked)STATE.data.asked=STATE.data.asked.filter(function(x){return!(x.date===STATE.date&&x.kind===a.kind&&x.item===a.item)})});
   var o=outbox();o.push({id:Date.now()+'-'+Math.random().toString(36).slice(2,6),tok:SELF,date:STATE.date,list:list});saveOut(o);
   var main=list[0],had12=!!STATE.had12;
-  if(!HELPER){var mm=pickMsg(main.kind,main.item,main.value,'تسجيل');
+  if(!HELPER||TESTM){var mm=pickMsg(main.kind,main.item,main.value,'تسجيل');
     showMsg(mm||{text:navigator.onLine===false?'⏳ محفوظ — هيتبعت لما النت يرجع':'اتبعت ✅',hadith:''},mm?(navigator.onLine===false?'⏳ محفوظ — هيتبعت لما النت يرجع':'اتبعت ✅'):'');
     if(!had12&&r12()){STATE.had12=1;showMsg(pickMsg('يوم','12 ركعة','*','تسجيل'),'')}}
   else toast(navigator.onLine===false?'⏳ محفوظ — هيتبعت لما النت يرجع':'اتبعت ✅');
@@ -568,6 +569,15 @@ function profileScreen(){STATE.newPhoto=null;STATE.screen='profile';
 function pickProfPhoto(inp){squareAvatar(inp.files[0]).then(function(d){STATE.newPhoto=d;$('pph').innerHTML=av(d,'',96)})}
 function saveProfile(){call('apiUpdateProfile',TOKEN,$('pd').value,STATE.newPhoto,$('po').value,$('pn').value,cityVal('pc')).then(function(me){ME=me;LS.setJ('fs_me',ME);LS.set('fs_day',null);toast('اتحفظ ✅');kidHome()})}
 
+// ---------- parent test mode (try the app as a child)
+function pTest(){var y=+CFG.today.slice(0,4);
+  pv(pTabs('test')+'<div class="card"><h2>🧪 جرّب التطبيق كطفل</h2><p class="muted">بتدخل على شاشة الطفل نفسها. اللي بتسجله مش بيظهر في الإحصائيات ولا الملخص، وبيتمسح لوحده بعد 15 دقيقة. كل ما تبدأ تجربة جديدة، التجربة القديمة بتتمسح.</p>'+
+    '<label class="l">جرّب كـ</label>'+seg('tsx',['ولد','بنت'],'ولد')+
+    '<label class="l">سنة الميلاد (عشان تجرّب قواعد السن)</label><input id="tby" type="number" value="'+(y-12)+'">'+
+    '<div style="height:12px"></div><button class="btn" onclick="startTest()">ابدأ التجربة 🧪</button></div>')}
+function startTest(){call('apiTestLogin',PT,segVal('tsx'),$('tby').value).then(function(r){
+  HELPER=true;TESTM=true;SELF=r.token;ME=r.me;ME.adult=false;LS.set('fs_seen_'+ME.user,null);kidHome()})}
+
 // ---------- helper's own page
 function pSelf(){
   if(!PINFO.page)return selfSettings();
@@ -596,11 +606,12 @@ function logoutParent(){call('logout',PT).catch(function(){});PT=null;PINFO={};H
 function pBtns(){return'<button onclick="logoutParent()">خروج</button>'}
 function pTabs(t){var T={review:'المراجعة',log:'خصم / مكافأة',acc:'الحسابات',dash:'الملخص',stats:'الإحصائيات',chat:'💬 الشات'};
   if(!PINFO.main)T.self='🙋 صفحتي';
+  T.test='🧪 جرّب كطفل';
   return'<div class="tabs">'+Object.keys(T).map(function(k){return'<button class="tab '+(t===k?'on':'')+'" onclick="parent(\''+k+'\')">'+T[k]+'<span id="tb_'+k+'">'+tabCount(k)+'</span></button>'}).join('')+'</div>'}
 function tabCount(k){var n=k==='review'?BADGE.pending:k==='acc'?(BADGE.waiting||STATE.waiting||0):0;return n?' <span class="cnt in">'+n+'</span>':''}
 function parent(t){
-  if(HELPER){HELPER=false;ME=LS.getJ('fs_me');SELF=TOKEN}
-  STATE.screen='parent';loading();({review:pReview,log:pLog,acc:pAcc,dash:pDash,chat:chatScreen,self:pSelf,stats:function(){pStats(monthOf(CFG.today))}})[t]()}
+  if(HELPER){HELPER=false;TESTM=false;ME=LS.getJ('fs_me');SELF=TOKEN}
+  STATE.screen='parent';loading();({review:pReview,log:pLog,acc:pAcc,dash:pDash,chat:chatScreen,self:pSelf,test:pTest,stats:function(){pStats(monthOf(CFG.today))}})[t]()}
 function pv(h){view(h,'🔒 '+esc(PINFO.name||'ولي الأمر'),pBtns())}
 
 function reviewOpts(x){

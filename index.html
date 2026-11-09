@@ -448,7 +448,7 @@ function CATS(){
     bonus:Math.max.apply(null,z.levels.map(function(l){return l.pts}).concat([0]))})});
   var c=[pr];
   if(!ME.adult)c.push({icon:'📱',title:'الموبايل والشاشات',items:[{kind:'شاشات',item:'الشاشات',label:'مدة الشاشات النهارده',opts:CFG.screenOpts,attach:true}]});
-  var list=ME.adult?(CFG.aitems||[]):CFG.items;
+  var list=(ME.adult?(CFG.aitems||[]):CFG.items).filter(function(i){return!i.hidden});
   [['أساسي','📚','الأساسيات'],['عادة','🧹','العادات'],['إضافي','🎈','حاجات بتحبها']].forEach(function(g){
     var its=list.filter(function(i){return i.type===g[0]});
     if(its.length)c.push({icon:g[1],title:g[2],items:its.map(function(i){return{kind:'بند',item:i.name,label:i.name,pts:i.full,opts:itemOpts(i)}})})});
@@ -569,6 +569,32 @@ function profileScreen(){STATE.newPhoto=null;STATE.screen='profile';
 function pickProfPhoto(inp){squareAvatar(inp.files[0]).then(function(d){STATE.newPhoto=d;$('pph').innerHTML=av(d,'',96)})}
 function saveProfile(){call('apiUpdateProfile',TOKEN,$('pd').value,STATE.newPhoto,$('po').value,$('pn').value,cityVal('pc')).then(function(me){ME=me;LS.setJ('fs_me',ME);LS.set('fs_day',null);toast('اتحفظ ✅');kidHome()})}
 
+// ---------- items editor (main parent)
+var TYPES=[['أساسي','📚 الأساسيات'],['عادة','🧹 العادات'],['إضافي','🎈 حاجات بتحبها (إضافي)']];
+function pItems(which){STATE.iw=which;
+  call('apiItems',PT).then(function(d){STATE.items=d;var L=d[which];
+    var h=pTabs('items')+'<div class="card"><div class="seg">'+[['kids','👧 بنود الأولاد'],['adults','🙋 بنود الكبار']].map(function(x){return'<button class="chip '+(x[0]===which?'on':'')+'" onclick="pItems(\''+x[0]+'\')">'+x[1]+'</button>'}).join('')+'</div>'+
+      '<p class="muted" style="font-size:13px;margin-top:8px">الصلاة والسنن والأذكار ثابتة. هنا تزوّد بند أو تعدّل نقاطه أو تخفيه. الإخفاء مش بيمسح القديم: الأيام اللي اتسجّل فيها بتفضل محسوبة. تغيير النقاط بيطبّق على كل الأيام، القديمة كمان.</p>'+
+      '<button class="btn" onclick="itemForm(-1)">➕ بند جديد</button><div id="if_-1"></div></div>';
+    TYPES.forEach(function(t){var its=L.filter(function(i){return i.type===t[0]});if(!its.length)return;
+      h+='<div class="card"><h2>'+t[1]+'</h2>';
+      its.forEach(function(i){h+='<div class="row"><div class="t"><span>'+(i.hidden?'<s>':'')+esc(i.name)+(i.hidden?'</s> <span class="badge b-off">مخفي</span>':'')+'</span>'+
+        '<button class="btn sm sec" onclick="itemForm('+i.row+')">✏️ تعديل</button></div><span class="muted">'+(i.levels?esc(i.levels.replace(/\|/g,' · ')):'تم '+i.full+' · جزئي '+i.part)+'</span><div id="if_'+i.row+'"></div></div>'});
+      h+='</div>'});
+    pv(h)})}
+function itemForm(row){var L=STATE.items[STATE.iw],i=row<0?{name:'',type:'عادة',full:2,part:1,levels:'',hidden:false}:L.filter(function(x){return x.row===row})[0],nw=row<0;
+  document.querySelectorAll('[id^="if_"]').forEach(function(e){e.innerHTML=''});
+  $('if_'+row).innerHTML='<div style="background:#f8fafc;border-radius:12px;padding:10px;margin-top:8px">'+
+    '<label class="l">الاسم</label><input id="in_n" value="'+esc(i.name)+'" '+(nw?'':'disabled')+'>'+(nw?'':'<span class="muted" style="font-size:12px">الاسم مش بيتغيّر عشان التاريخ القديم. لو عايز اسم جديد: اخفي ده وزوّد بند جديد.</span>')+
+    '<label class="l">النوع</label>'+seg('in_t',TYPES.map(function(t){return t[0]}),i.type)+
+    '<div class="flex"><div style="flex:1"><label class="l">نقاط «تم»</label><input id="in_f" type="number" min="0" max="20" value="'+i.full+'"></div><div style="flex:1"><label class="l">نقاط «جزئي»</label><input id="in_p" type="number" min="0" max="20" value="'+i.part+'"></div></div>'+
+    '<label class="l">خيارات خاصة (اختياري) — بدل تم/جزئي</label><input id="in_l" placeholder="مثال: 2 أوجه:1|4 أوجه:2|6 أوجه:3" value="'+esc(i.levels)+'">'+
+    '<label class="flex" style="margin:10px 0"><input id="in_h" type="checkbox" style="width:auto" '+(i.hidden?'checked':'')+'> مخفي (مش هيظهر للأولاد)</label>'+
+    '<button class="btn sm" onclick="saveItem('+(nw?1:0)+')">حفظ</button> <button class="btn sm sec" onclick="this.closest(\'[id^=if_]\').innerHTML=\'\'">إلغاء</button></div>'}
+function saveItem(nw){var it={name:$('in_n').value,type:segVal('in_t'),full:$('in_f').value,part:$('in_p').value,levels:$('in_l').value,hidden:$('in_h').checked};
+  call('apiSaveItem',PT,STATE.iw,it,!!nw).then(function(){toast('اتحفظ ✅ — بيوصل للأولاد خلال دقايق');
+    quiet('apiConfig').then(function(c){CFG=c;OFF=c.now-Date.now();LS.setJ('fs_cfg',CFG)},function(){});pItems(STATE.iw)})}
+
 // ---------- parent test mode (try the app as a child)
 function pTest(){var y=+CFG.today.slice(0,4);
   pv(pTabs('test')+'<div class="card"><h2>🧪 جرّب التطبيق كطفل</h2><p class="muted">بتدخل على شاشة الطفل نفسها. اللي بتسجله مش بيظهر في الإحصائيات ولا الملخص، وبيتمسح لوحده بعد 15 دقيقة. كل ما تبدأ تجربة جديدة، التجربة القديمة بتتمسح.</p>'+
@@ -606,12 +632,13 @@ function logoutParent(){call('logout',PT).catch(function(){});PT=null;PINFO={};H
 function pBtns(){return'<button onclick="logoutParent()">خروج</button>'}
 function pTabs(t){var T={review:'المراجعة',log:'خصم / مكافأة',acc:'الحسابات',dash:'الملخص',stats:'الإحصائيات',chat:'💬 الشات'};
   if(!PINFO.main)T.self='🙋 صفحتي';
+  if(PINFO.main)T.items='📋 البنود';
   T.test='🧪 جرّب كطفل';
   return'<div class="tabs">'+Object.keys(T).map(function(k){return'<button class="tab '+(t===k?'on':'')+'" onclick="parent(\''+k+'\')">'+T[k]+'<span id="tb_'+k+'">'+tabCount(k)+'</span></button>'}).join('')+'</div>'}
 function tabCount(k){var n=k==='review'?BADGE.pending:k==='acc'?(BADGE.waiting||STATE.waiting||0):0;return n?' <span class="cnt in">'+n+'</span>':''}
 function parent(t){
   if(HELPER){HELPER=false;TESTM=false;ME=LS.getJ('fs_me');SELF=TOKEN}
-  STATE.screen='parent';loading();({review:pReview,log:pLog,acc:pAcc,dash:pDash,chat:chatScreen,self:pSelf,test:pTest,stats:function(){pStats(monthOf(CFG.today))}})[t]()}
+  STATE.screen='parent';loading();({review:pReview,log:pLog,acc:pAcc,dash:pDash,chat:chatScreen,self:pSelf,test:pTest,items:function(){pItems('kids')},stats:function(){pStats(monthOf(CFG.today))}})[t]()}
 function pv(h){view(h,'🔒 '+esc(PINFO.name||'ولي الأمر'),pBtns())}
 
 function reviewOpts(x){

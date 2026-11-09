@@ -161,7 +161,39 @@ function regSW(){if(!('serviceWorker' in navigator))return;
     if(reg.waiting&&navigator.serviceWorker.controller)$('upd').classList.add('show');
     reg.addEventListener('updatefound',function(){watch(reg.installing)});
     setInterval(function(){reg.update().catch(function(){})},30*60000)}).catch(function(){});
-  navigator.serviceWorker.addEventListener('controllerchange',function(){if(SWGO){SWGO=false;location.reload()}})}
+  navigator.serviceWorker.addEventListener('controllerchange',function(){if(SWGO){SWGO=false;location.reload()}});
+  navigator.serviceWorker.addEventListener('message',function(e){if(e.data==='push')pollBadges()})}
+// ---------- push notifications (Firebase Cloud Messaging; the service worker shows them)
+var FB={"apiKey":"AIzaSyBA3hafu_lVFB5lT3iU2_SMpgzGLoCxZ40","authDomain":"fastabiqu-123f4.firebaseapp.com","projectId":"fastabiqu-123f4","storageBucket":"fastabiqu-123f4.firebasestorage.app","messagingSenderId":"141740560153","appId":"1:141740560153:web:3f2d8fb7d35f76ebe7ff88"},VAPID='BEMhUDrLHX5uFBAumPxskyezz1ZvwfNp72_5m8EmKfJuPjq8cwJTemVqLOL0gKfvLz4YgOK6pDqX49chQiIaXXo',FBV='10.12.2',FBP=null;
+function pushOK(){return'Notification' in window&&'serviceWorker' in navigator&&'PushManager' in window}
+function pushOn(role){return!!LS.getJ('fs_push_'+role)}
+function pushCard(role){if(!pushOK()||Notification.permission==='denied'||pushOn(role))return'';
+  if(Date.now()-(Number(LS.get('fs_push_no_'+role))||0)<3*864e5)return'';
+  return'<div class="card" id="pushc" style="border:2px solid #60a5fa;text-align:center"><b>🔔 فعّل الإشعارات</b><div class="muted" style="margin:6px 0">'+
+    (role==='p'?'عشان يوصلك تنبيه لما الأولاد يسجّلوا أو يبعتوا هدية أو رسالة':'عشان يوصلك تنبيه وقت الأذان، ولما بابا يراجع أو يرد عليك')+'</div>'+
+    '<button class="btn" onclick="pushEnable(\''+role+'\')">فعّل</button> <button class="btn sec sm" onclick="LS.set(\'fs_push_no_'+role+'\',String(Date.now()));var c=$(\'pushc\');if(c)c.remove()">مش دلوقتي</button></div>'}
+function loadJS(u){return new Promise(function(ok,no){var s=document.createElement('script');s.src=u;s.onload=ok;s.onerror=function(){no(new Error('load '+u))};document.head.appendChild(s)})}
+function fbToken(){
+  if(!FBP){FBP=loadJS('https://www.gstatic.com/firebasejs/'+FBV+'/firebase-app-compat.js').then(function(){return loadJS('https://www.gstatic.com/firebasejs/'+FBV+'/firebase-messaging-compat.js')})
+    .then(function(){if(!firebase.apps.length)firebase.initializeApp(FB);return firebase.messaging()});FBP.catch(function(){FBP=null})}
+  return FBP.then(function(m){return navigator.serviceWorker.ready.then(function(reg){return m.getToken({vapidKey:VAPID,serviceWorkerRegistration:reg})})})}
+function roleTok(role){return role==='p'?PT:(TOKEN&&ME&&!TESTM?TOKEN:null)}
+/** register this device for the roles that turned notifications on here (once a day, or when the code changes) */
+function pushSync(force,only){if(!pushOK()||Notification.permission!=='granted')return Promise.resolve(0);
+  var roles=['k','p'].filter(function(r){return roleTok(r)&&(r===only||pushOn(r))});if(!roles.length)return Promise.resolve(0);
+  return fbToken().then(function(t){if(!t)throw new Error('no token');return Promise.all(roles.map(function(r){var o=LS.getJ('fs_push_'+r)||{};
+    if(!force&&o.t===t&&o.d===localToday())return 1;
+    return api('apiPushRegister',[roleTok(r),t,navigator.platform||'']).then(function(){LS.setJ('fs_push_'+r,{t:t,d:localToday()});return 1})}))})}
+function pushEnable(role){var c=$('pushc');if(c)c.remove();
+  Notification.requestPermission().then(function(p){
+    if(p!=='granted'){toast('الإشعارات اترفضت — تقدر تفعّلها من إعدادات المتصفح للموقع');return}
+    toast('جاري التفعيل…');
+    return pushSync(true,role).then(function(){return api('apiPushTest',[roleTok(role)])}).then(function(x){
+      toast(x&&x.sent?'🔔 الإشعارات اتفعّلت — هيوصلك تنبيه تجربة':'⚠️ اتفعّلت بس التجربة ما وصلتش'+(x&&x.err?': '+x.err.slice(0,90):''))})})
+  .catch(function(e){toast('⚠️ مقدرتش أفعّل الإشعارات: '+((e&&e.message)||e))})}
+/** before logout: this device stops getting that person's notifications */
+function pushOff(role,tok){var o=LS.getJ('fs_push_'+role);LS.set('fs_push_'+role,null);
+  return o&&o.t&&tok?api('apiPushOff',[tok,o.t]).catch(function(){}):Promise.resolve()}
 function applyUpdate(){SWGO=true;if(SWREG&&SWREG.waiting)SWREG.waiting.postMessage('skip');else location.reload()}
 function netBar(){var n=outbox().length,off=navigator.onLine===false,b=$('net');
   if(!off&&!n){b.classList.remove('show');return}
@@ -335,7 +367,7 @@ function boot(){
       if(!BOOTED){STATE={date:CFG.today,tab:'day'};setDay(b.day,false);renderKid()}
       else if(STATE.date===b.day.date&&!outbox().length)setDay(b.day,true)}
     else if(!BOOTED)loginScreen();
-    BOOTED=true;applyBadges(b.badges);flush()
+    BOOTED=true;applyBadges(b.badges);flush();pushSync(false).catch(function(){})
   },function(e){
     if(BOOTED||!e.net)return;
     view('<div class="card" style="text-align:center"><h2>📴 مفيش إنترنت</h2><p>أول مرة التطبيق محتاج نت عشان يحمّل البيانات.</p><button class="btn" onclick="location.reload()">جرّب تاني</button></div>')})
@@ -349,7 +381,7 @@ function loginScreen(){PT=null;HELPER=false;
     '<div class="card"><button class="btn sec" onclick="parentLogin()">ولي الأمر 🔒</button></div>');
 }
 function doKidLogin(){var u=$('lu').value,p=$('lp').value;if(!u||!p)return toast('اكتب البيانات');loading();
-  call('apiLogin',u,p).then(function(r){TOKEN=r.token;SELF=TOKEN;ME=r.me;LS.set('fs_tok',TOKEN);LS.setJ('fs_me',ME);kidHome();pollBadges()}).catch(loginScreen)}
+  call('apiLogin',u,p).then(function(r){TOKEN=r.token;SELF=TOKEN;ME=r.me;LS.set('fs_tok',TOKEN);LS.setJ('fs_me',ME);kidHome();pollBadges();pushSync(false).catch(function(){})}).catch(loginScreen)}
 function registerScreen(){STATE.regPhoto='';
   view('<div class="card"><h2>حساب جديد</h2>'+
     '<div style="text-align:center"><span id="rph">'+av('', '?', 90)+'</span><br><label class="attach">📷 اختار صورتك<input type="file" accept="image/*" class="hide" onchange="pickRegPhoto(this)"></label></div>'+
@@ -373,7 +405,7 @@ function doRegister(){
     view('<div class="card" style="text-align:center"><h2>تم إنشاء الحساب 🎉</h2><p>بابا أو ماما لازم يوافقوا على الحساب الأول، وبعدها تقدر تدخل.</p>'+
       '<button class="btn" onclick="loginScreen()">رجوع لتسجيل الدخول</button></div>')}).catch(registerScreen)}
 function logoutKid(){if(outbox().length&&!confirm('فيه تسجيلات لسه ما اتبعتتش — لو خرجت هتضيع. تخرج؟'))return;
-  call('logout',TOKEN).catch(function(){});TOKEN=null;ME=null;SELF=null;LS.set('fs_tok',null);LS.set('fs_me',null);LS.set('fs_day',null);LS.set('fs_out',null);netBar();loginScreen()}
+  var t0=TOKEN;pushOff('k',t0).then(function(){api('logout',[t0]).catch(function(){})});TOKEN=null;ME=null;SELF=null;LS.set('fs_tok',null);LS.set('fs_me',null);LS.set('fs_day',null);LS.set('fs_out',null);netBar();loginScreen()}
 
 // ---------- kid (also the helper's own page)
 function kidHeader(){return av(ME.photo,ME.display,30)+' '+esc(ME.display)}
@@ -404,7 +436,7 @@ function kidTabs(){return'<div class="tabs"><button class="tab '+(STATE.tab==='d
   '<button class="tab '+(STATE.tab==='month'?'on':'')+'" onclick="kidHome(STATE.date,\'month\')">درجاتي في الشهر</button></div>'}
 function renderKid(){
   STATE.screen='home';var d=STATE.data,ent=STATE.ent;
-  var h=kidTabs(),day=d.day;
+  var h=(TESTM?'':pushCard('k'))+kidTabs(),day=d.day;
   if(TESTM)h='<div class="note" style="background:#fef3c7">🧪 <b>وضع التجربة</b> — شايف التطبيق زي ما الطفل شايفه. اللي بتسجله هنا مش بيدخل في أي إحصائيات، وبيتمسح لوحده بعد 15 دقيقة. وتقدر تعتمده من «المراجعة» عشان تشوف رسايل الاعتماد.</div>'+h;
   if(d.asked&&d.asked.length){h+='<div class="card" style="border:2px solid #f59e0b"><h2>❓ بابا سألك على '+d.asked.length+' بند</h2>';
     d.asked.forEach(function(a){h+='<button class="itemrow" onclick="openEntry(\''+a.date+'\',\''+esc(a.kind)+'\',\''+esc(a.item)+'\')"><span><b>'+esc(itemLabel(a.kind,a.item))+'</b><br><span class="muted">'+a.date+'</span></span><span class="go">‹</span></button>'});h+='</div>'}
@@ -626,8 +658,8 @@ function parentLogin(){
     '<div style="height:8px"></div><button class="btn sec" onclick="TOKEN?kidHome():loginScreen()">رجوع</button></div>','ولي الأمر 🔒');
   setTimeout(function(){$('pin')&&$('pin').focus()},50);
 }
-function doLogin(){call('apiParentLogin',$('pin').value).then(function(r){PT=r.token;PINFO=r;LS.setJ('fs_pt',r);parent('review');pollBadges()})}
-function logoutParent(){call('logout',PT).catch(function(){});PT=null;PINFO={};HELPER=false;LS.set('fs_pt',null);
+function doLogin(){call('apiParentLogin',$('pin').value).then(function(r){PT=r.token;PINFO=r;LS.setJ('fs_pt',r);parent('review');pollBadges();pushSync(false).catch(function(){})})}
+function logoutParent(){var p0=PT;pushOff('p',p0).then(function(){api('logout',[p0]).catch(function(){})});PT=null;PINFO={};HELPER=false;LS.set('fs_pt',null);
   ME=LS.getJ('fs_me');SELF=TOKEN;TOKEN&&ME?kidHome():loginScreen()}
 function pBtns(){return'<button onclick="logoutParent()">خروج</button>'}
 function pTabs(t){var T={review:'المراجعة',log:'خصم / مكافأة',acc:'الحسابات',dash:'الملخص',stats:'الإحصائيات',chat:'💬 الشات'};
@@ -639,7 +671,7 @@ function tabCount(k){var n=k==='review'?BADGE.pending:k==='acc'?(BADGE.waiting||
 function parent(t){
   if(HELPER){HELPER=false;TESTM=false;ME=LS.getJ('fs_me');SELF=TOKEN}
   STATE.screen='parent';loading();({review:pReview,log:pLog,acc:pAcc,dash:pDash,chat:chatScreen,self:pSelf,test:pTest,items:function(){pItems('kids')},stats:function(){pStats(monthOf(CFG.today))}})[t]()}
-function pv(h){view(h,'🔒 '+esc(PINFO.name||'ولي الأمر'),pBtns())}
+function pv(h){view((HELPER?'':pushCard('p'))+h,'🔒 '+esc(PINFO.name||'ولي الأمر'),pBtns())}
 
 function reviewOpts(x){
   if(x.kind==='صلاة')return CFG.prayerOpts;if(x.kind==='شاشات')return CFG.screenOpts;if(x.kind==='سنة')return['صليتها','لا'];
@@ -864,6 +896,7 @@ function chatSend(){var t=$('ct').value;if(!t.trim()&&!STATE.chatFile)return;$('
     $('catt').firstChild.textContent='📎 صورة أو صوت ';$('cgo').disabled=false;chatLoad(true)}).catch(function(){$('cgo').disabled=false})}
 
 boot();
+
 </script>
 </body>
 </html>
